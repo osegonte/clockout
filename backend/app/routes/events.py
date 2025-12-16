@@ -1,52 +1,179 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Index
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-from app.database import Base
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, func
+from pydantic import BaseModel
+from datetime import datetime, date
+import math
+
+from app.database import get_db
+from app.models.event import ClockEvent, Device
+from app.models.site import Site
+
+router = APIRouter()
 
 
-class Device(Base):
-    __tablename__ = "devices"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    device_id = Column(String, unique=True, index=True, nullable=False)
-    device_name = Column(String)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    site_id = Column(Integer, ForeignKey("sites.id"))
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    last_sync = Column(DateTime(timezone=True))
-    
-    clock_events = relationship("ClockEvent", back_populates="device")
+# Pydantic schemas
+class ClockEventCreate(BaseModel):
+    worker_id: int
+    site_id: int
+    device_id: str
+    event_type: str
+    event_timestamp: datetime
+    gps_lat: float
+    gps_lon: float
+    accuracy_m: Optional[float] = None
 
 
-class ClockEvent(Base):
-    __tablename__ = "clock_events"
+class ClockEventResponse(BaseModel):
+    id: int
+    worker_id: int
+    site_id: int
+    event_type: str
+    event_timestamp: datetime
+    gps_lat: float
+    gps_lon: float
+    is_valid: bool
+    distance_m: Optional[float]
     
-    id = Column(Integer, primary_key=True, index=True)
+    class Config:
+        from_attributes = True
+
+
+def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two GPS coordinates in meters (Haversine formula)"""
+    R = 6371000
     
-    worker_id = Column(Integer, ForeignKey("workers.id"), nullable=False)
-    site_id = Column(Integer, ForeignKey("sites.id"), nullable=False)
-    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False)
-    event_type = Column(String, nullable=False)
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
     
-    event_timestamp = Column(DateTime(timezone=True), nullable=False)
+    a = math.sin(delta_phi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     
-    gps_lat = Column(Float, nullable=False)
-    gps_lon = Column(Float, nullable=False)
-    accuracy_m = Column(Float)
-    
-    is_valid = Column(Boolean, default=True)
-    distance_m = Column(Float)
-    
-    synced_at = Column(DateTime(timezone=True), server_default=func.now())
-    source = Column(String, default="GPS")
-    
-    worker = relationship("Worker", back_populates="clock_events")
-    site = relationship("Site", back_populates="clock_events")
-    device = relationship("Device", back_populates="clock_events")
-    
-    __table_args__ = (
-        Index('idx_site_timestamp', 'site_id', 'event_timestamp'),
-        Index('idx_worker_timestamp', 'worker_id', 'event_timestamp'),
-        Index('idx_event_timestamp', 'event_timestamp'),
+    return R * c
+
+
+def validate_geofence(event: ClockEventCreate, site: Site) -> tuple[bool, float]:
+    """Check if event is within site geofence"""
+    distance = calculate_distance(
+        event.gps_lat, event.gps_lon,
+        site.gps_lat, site.gps_lon
     )
+    is_valid = distance <= site.radius_m
+    return is_valid, distance
+
+
+@router.post("/", response_model=ClockEventResponse, status_code=201)
+async def create_event(event: ClockEventCreate, db: Session = Depends(get_db)):
+    """Submit a single clock-in/out event"""
+    
+    device = db.query(Device).filter(Device.device_id == event.device_id).first()
+    if not device:
+        device = Device(device_id=event.device_id, organization_id=1)
+        db.add(device)
+        db.commit()
+        db.refresh(device)
+    
+    site = db.query(Site).filter(Site.id == event.site_id).first()
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+    
+    is_valid, distance = validate_geofence(event, site)
+    
+    db_event = ClockEvent(
+        worker_id=event.worker_id,
+        site_id=event.site_id,
+        device_id=device.id,
+        event_type=event.event_type,
+        event_timestamp=event.event_timestamp,
+        gps_lat=event.gps_lat,
+        gps_lon=event.gps_lon,
+        accuracy_m=event.accuracy_m,
+        is_valid=is_valid,
+        distance_m=distance
+    )
+    
+    db.add(db_event)
+    db.commit()
+    db.refresh(db_event)
+    
+    device.last_sync = datetime.utcnow()
+    db.commit()
+    
+    return db_event
+
+
+@router.post("/bulk", response_model=List[ClockEventResponse])
+async def create_events_bulk(events: List[ClockEventCreate], db: Session = Depends(get_db)):
+    """Bulk upload events - for offline sync"""
+    created_events = []
+    
+    for event in events:
+        existing = db.query(ClockEvent).filter(
+            and_(
+                ClockEvent.worker_id == event.worker_id,
+                ClockEvent.site_id == event.site_id,
+                ClockEvent.event_timestamp == event.event_timestamp
+            )
+        ).first()
+        
+        if existing:
+            continue
+        
+        device = db.query(Device).filter(Device.device_id == event.device_id).first()
+        if not device:
+            device = Device(device_id=event.device_id, organization_id=1)
+            db.add(device)
+            db.commit()
+            db.refresh(device)
+        
+        site = db.query(Site).filter(Site.id == event.site_id).first()
+        if not site:
+            continue
+        
+        is_valid, distance = validate_geofence(event, site)
+        
+        db_event = ClockEvent(
+            worker_id=event.worker_id,
+            site_id=event.site_id,
+            device_id=device.id,
+            event_type=event.event_type,
+            event_timestamp=event.event_timestamp,
+            gps_lat=event.gps_lat,
+            gps_lon=event.gps_lon,
+            accuracy_m=event.accuracy_m,
+            is_valid=is_valid,
+            distance_m=distance
+        )
+        
+        db.add(db_event)
+        created_events.append(db_event)
+    
+    db.commit()
+    
+    for event in created_events:
+        db.refresh(event)
+    
+    return created_events
+
+
+@router.get("/", response_model=List[ClockEventResponse])
+async def list_events(
+    site_id: Optional[int] = None,
+    worker_id: Optional[int] = None,
+    date: Optional[date] = None,
+    db: Session = Depends(get_db)
+):
+    """List events with optional filters"""
+    query = db.query(ClockEvent)
+    
+    if site_id:
+        query = query.filter(ClockEvent.site_id == site_id)
+    if worker_id:
+        query = query.filter(ClockEvent.worker_id == worker_id)
+    if date:
+        query = query.filter(func.date(ClockEvent.event_timestamp) == date)
+    
+    return query.order_by(ClockEvent.event_timestamp.desc()).all()
