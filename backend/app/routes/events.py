@@ -13,7 +13,6 @@ from app.models.site import Site
 router = APIRouter()
 
 
-# Pydantic schemas
 class ClockEventCreate(BaseModel):
     worker_id: int
     site_id: int
@@ -41,34 +40,24 @@ class ClockEventResponse(BaseModel):
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate distance between two GPS coordinates in meters (Haversine formula)"""
     R = 6371000
-    
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - lat1)
     delta_lambda = math.radians(lon2 - lon1)
-    
     a = math.sin(delta_phi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda/2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    
     return R * c
 
 
 def validate_geofence(event: ClockEventCreate, site: Site) -> tuple[bool, float]:
-    """Check if event is within site geofence"""
-    distance = calculate_distance(
-        event.gps_lat, event.gps_lon,
-        site.gps_lat, site.gps_lon
-    )
+    distance = calculate_distance(event.gps_lat, event.gps_lon, site.gps_lat, site.gps_lon)
     is_valid = distance <= site.radius_m
     return is_valid, distance
 
 
 @router.post("/", response_model=ClockEventResponse, status_code=201)
 async def create_event(event: ClockEventCreate, db: Session = Depends(get_db)):
-    """Submit a single clock-in/out event"""
-    
     device = db.query(Device).filter(Device.device_id == event.device_id).first()
     if not device:
         device = Device(device_id=event.device_id, organization_id=1)
@@ -107,7 +96,6 @@ async def create_event(event: ClockEventCreate, db: Session = Depends(get_db)):
 
 @router.post("/bulk", response_model=List[ClockEventResponse])
 async def create_events_bulk(events: List[ClockEventCreate], db: Session = Depends(get_db)):
-    """Bulk upload events - for offline sync"""
     created_events = []
     
     for event in events:
@@ -166,7 +154,6 @@ async def list_events(
     date: Optional[date] = None,
     db: Session = Depends(get_db)
 ):
-    """List events with optional filters"""
     query = db.query(ClockEvent)
     
     if site_id:
