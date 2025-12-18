@@ -159,7 +159,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     // ==========================================
-    // LOCATION & GEOFENCE
+    // LOCATION & GEOFENCE - UPDATED FOR FRESH GPS
     // ==========================================
     
     private fun requestLocationPermission() {
@@ -203,27 +203,44 @@ class MainActivity : AppCompatActivity() {
             return
         }
         
-        tvGpsStatus.text = "Getting location..."
+        tvGpsStatus.text = "Getting fresh location..."
         
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            currentLocation = location
-            
-            if (location == null) {
-                tvGpsStatus.text = "❌ Location unavailable"
-                return@addOnSuccessListener
-            }
-            
-            val site = currentSite
-            if (site == null) {
-                tvGpsStatus.text = "⚠ Waiting for site data..."
-                return@addOnSuccessListener
-            }
-            
-            validateGeofence(location, site)
-        }.addOnFailureListener { error ->
-            Log.e(TAG, "Failed to get location: ${error.message}")
-            tvGpsStatus.text = "❌ Location error"
+        // ✅ REQUEST FRESH LOCATION INSTEAD OF CACHED
+        val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
+            priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
+            interval = 5000
+            fastestInterval = 2000
+            numUpdates = 1 // Get just one fresh update
         }
+        
+        val locationCallback = object : com.google.android.gms.location.LocationCallback() {
+            override fun onLocationResult(locationResult: com.google.android.gms.location.LocationResult) {
+                val location = locationResult.lastLocation
+                currentLocation = location
+                
+                if (location == null) {
+                    tvGpsStatus.text = "❌ Location unavailable"
+                    return
+                }
+                
+                // Log fresh coordinates
+                Log.d(TAG, "✅ Fresh GPS: ${location.latitude}, ${location.longitude}")
+                
+                val site = currentSite
+                if (site == null) {
+                    tvGpsStatus.text = "⚠ Waiting for site data..."
+                    return
+                }
+                
+                validateGeofence(location, site)
+            }
+        }
+        
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            null
+        )
     }
     
     private fun validateGeofence(location: Location, site: SiteEntity) {
@@ -244,6 +261,9 @@ class MainActivity : AppCompatActivity() {
         
         btnCheckIn.isEnabled = insideGeofence
         btnCheckOut.isEnabled = insideGeofence
+        
+        // Log validation result
+        Log.d(TAG, "Geofence check: distance=${distance.toInt()}m, radius=${site.radius.toInt()}m, valid=$insideGeofence")
     }
     
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
