@@ -112,6 +112,16 @@
         android:text="✓ All synced"
         android:textSize="14sp"
         android:textColor="#4CAF50"
-        android:gravity="center"/>
+        android:gravity="center"
+        android:layout_marginBottom="12dp"/>
+
+    <!-- SYNC NOW BUTTON -->
+    <Button
+        android:id="@+id/btnSync"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="🔄 SYNC NOW"
+        android:textSize="16sp"
+        android:backgroundTint="#2196F3"/>
 
 </LinearLayout>

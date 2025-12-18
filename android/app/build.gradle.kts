@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("kotlin-kapt")
 }
 
 android {
@@ -45,7 +46,9 @@ dependencies {
     
     // Room Database (offline storage)
     implementation("androidx.room:room-runtime:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
+    
     
     // Retrofit (API calls)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
