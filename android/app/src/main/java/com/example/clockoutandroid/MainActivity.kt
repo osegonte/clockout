@@ -16,15 +16,11 @@ import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
-import kotlinx.coroutines.launch
+import kotlin.math.*
 
-// Database and API imports
 import com.example.clockoutandroid.data.local.AppDatabase
 import com.example.clockoutandroid.data.local.entities.AttendanceEventEntity
 import com.example.clockoutandroid.data.local.entities.WorkerEntity
@@ -33,7 +29,7 @@ import com.example.clockoutandroid.data.repository.AttendanceRepository
 
 class MainActivity : AppCompatActivity() {
     
-    // UI Elements
+    // UI Components
     private lateinit var tvSiteName: TextView
     private lateinit var tvGpsStatus: TextView
     private lateinit var tvDistance: TextView
@@ -43,14 +39,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvSyncStatus: TextView
     private lateinit var btnSync: Button
     
-    // Location
+    // Services
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private var currentLocation: Location? = null
-    
-    // Repository
     private lateinit var repository: AttendanceRepository
     
-    // Data
+    // State
+    private var currentLocation: Location? = null
     private var workers = listOf<WorkerEntity>()
     private var currentSite: SiteEntity? = null
     
@@ -63,8 +57,18 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         
-        Log.d(TAG, "=== APP STARTED - API TEST MODE ===")
-        
+        initializeComponents()
+        setupClickListeners()
+        requestLocationPermission()
+        loadDataFromApi()
+        observeUnsyncedCount()
+    }
+    
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
+    
+    private fun initializeComponents() {
         // Initialize UI
         tvSiteName = findViewById(R.id.tvSiteName)
         tvGpsStatus = findViewById(R.id.tvGpsStatus)
@@ -75,130 +79,89 @@ class MainActivity : AppCompatActivity() {
         tvSyncStatus = findViewById(R.id.tvSyncStatus)
         btnSync = findViewById(R.id.btnSync)
         
-        // Create SYNC button dynamically (we'll add it to layout later)
-        btnSync = Button(this).apply {
-            text = "SYNC NOW"
-            setOnClickListener { syncToBackend() }
-        }
-        
-        tvSiteName.text = "Loading..."
-        tvSyncStatus.text = "Initializing..."
-        
-        // Initialize repository
+        // Initialize services
         val database = AppDatabase.getDatabase(this)
         repository = AttendanceRepository(database)
-        
-        // Initialize location client
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         
-        // Setup buttons
-        btnCheckIn.setOnClickListener { checkIn() }
-        btnCheckOut.setOnClickListener { checkOut() }
-        
-        // Request location permission
-        requestLocationPermission()
-        
-        // Fetch data from API
-        fetchDataFromApi()
-        
-        // Observe unsynced count
-        observeUnsyncedCount()
+        // Initial state
+        tvSiteName.text = "Loading site..."
+        tvGpsStatus.text = "Initializing..."
+        btnCheckIn.isEnabled = false
+        btnCheckOut.isEnabled = false
     }
     
-    // ============================================
-    // FETCH DATA FROM API
-    // ============================================
-    private fun fetchDataFromApi() {
+    private fun setupClickListeners() {
+        btnCheckIn.setOnClickListener { recordAttendance("IN") }
+        btnCheckOut.setOnClickListener { recordAttendance("OUT") }
+        btnSync.setOnClickListener { syncToBackend() }
+    }
+    
+    // ==========================================
+    // DATA LOADING
+    // ==========================================
+    
+    private fun loadDataFromApi() {
         lifecycleScope.launch {
-            Log.d(TAG, "--- FETCHING DATA FROM API ---")
-            
-            // Fetch sites
-            val sitesResult = repository.fetchSitesFromApi(organizationId = 1)
-            sitesResult.onSuccess { sites ->
-                if (sites.isNotEmpty()) {
-                    currentSite = sites[0]  // Use first site for testing
-                    tvSiteName.text = "📍 ${currentSite?.name} (from API)"
-                    Log.d(TAG, "✅ Site loaded: ${currentSite?.name}")
+            // Load sites
+            repository.fetchSitesFromApi(organizationId = 1)
+                .onSuccess { sites ->
+                    if (sites.isNotEmpty()) {
+                        currentSite = sites[0]
+                        tvSiteName.text = "📍 ${currentSite?.name}"
+                        getLocation() // Refresh location to validate geofence
+                    }
                 }
-            }.onFailure { error ->
-                Log.e(TAG, "❌ Failed to fetch sites", error)
-                tvSiteName.text = "⚠ Failed to load site"
-                Toast.makeText(
-                    this@MainActivity,
-                    "Failed to fetch sites: ${error.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+                .onFailure { error ->
+                    Log.e(TAG, "Failed to fetch sites: ${error.message}")
+                    showError("Failed to load site data")
+                }
             
-            // Fetch workers
-            val workersResult = repository.fetchWorkersFromApi(organizationId = 1)
-            workersResult.onSuccess { fetchedWorkers ->
-                workers = fetchedWorkers
-                updateWorkerSpinner()
-                Log.d(TAG, "✅ Workers loaded: ${workers.size} workers")
-                Toast.makeText(
-                    this@MainActivity,
-                    "✅ Loaded ${workers.size} workers from API",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }.onFailure { error ->
-                Log.e(TAG, "❌ Failed to fetch workers", error)
-                Toast.makeText(
-                    this@MainActivity,
-                    "Failed to fetch workers: ${error.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-                // Use fallback hardcoded data
-                useFallbackData()
-            }
+            // Load workers
+            repository.fetchWorkersFromApi(organizationId = 1)
+                .onSuccess { fetchedWorkers ->
+                    workers = fetchedWorkers
+                    updateWorkerSpinner()
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Loaded ${workers.size} workers",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                .onFailure { error ->
+                    Log.e(TAG, "Failed to fetch workers: ${error.message}")
+                    showError("Failed to load workers")
+                }
         }
-    }
-    
-    private fun useFallbackData() {
-        Log.w(TAG, "Using fallback hardcoded data")
-        workers = listOf(
-            WorkerEntity(id = 1, name = "John Doe (local)", phone = null, siteId = 1),
-            WorkerEntity(id = 2, name = "Jane Smith (local)", phone = null, siteId = 1),
-            WorkerEntity(id = 3, name = "Samuel Obi (local)", phone = null, siteId = 1)
-        )
-        updateWorkerSpinner()
-        
-        currentSite = SiteEntity(
-            id = 1,
-            name = "Lagos Farm (local)",
-            latitude = 6.5244,
-            longitude = 3.3792,
-            radius = 100.0
-        )
-        tvSiteName.text = "📍 ${currentSite?.name} (offline mode)"
     }
     
     private fun updateWorkerSpinner() {
         val workerNames = workers.map { it.name }
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, workerNames)
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            workerNames
+        )
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerWorker.adapter = adapter
     }
     
-    // ============================================
-    // OBSERVE UNSYNCED COUNT
-    // ============================================
     private fun observeUnsyncedCount() {
         lifecycleScope.launch {
             repository.getUnsyncedCount().collect { count ->
                 tvSyncStatus.text = if (count > 0) {
-                    "⏳ $count event(s) pending sync"
+                    "⏳ $count event(s) pending"
                 } else {
                     "✓ All synced"
                 }
-                Log.d(TAG, "Unsynced events: $count")
             }
         }
     }
     
-    // ============================================
-    // LOCATION
-    // ============================================
+    // ==========================================
+    // LOCATION & GEOFENCE
+    // ==========================================
+    
     private fun requestLocationPermission() {
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -226,6 +189,7 @@ class MainActivity : AppCompatActivity() {
                 getLocation()
             } else {
                 tvGpsStatus.text = "❌ Location permission denied"
+                Toast.makeText(this, "Location permission required", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -241,182 +205,45 @@ class MainActivity : AppCompatActivity() {
         
         tvGpsStatus.text = "Getting location..."
         
-        fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
-            if (location != null) {
-                currentLocation = location
-                
-                if (currentSite != null) {
-                    val distance = calculateDistance(
-                        location.latitude, location.longitude,
-                        currentSite!!.latitude, currentSite!!.longitude
-                    )
-                    
-                    tvGpsStatus.text = if (distance <= currentSite!!.radius) {
-                        "✓ Inside geofence"
-                    } else {
-                        "⚠ Outside geofence (${distance.toInt()}m away)"
-                    }
-                    
-                    tvDistance.text = "Distance: ${distance.toInt()}m"
-                    
-                    // Enable/disable buttons based on geofence
-                    val insideGeofence = distance <= currentSite!!.radius
-                    btnCheckIn.isEnabled = insideGeofence
-                    btnCheckOut.isEnabled = insideGeofence
-                    
-                    Log.d(TAG, "GPS: ${location.latitude}, ${location.longitude} | Distance: ${distance}m")
-                } else {
-                    tvGpsStatus.text = "⚠ Site data not loaded yet"
-                }
-                
-            } else {
-                tvGpsStatus.text = "❌ Could not get location"
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            currentLocation = location
+            
+            if (location == null) {
+                tvGpsStatus.text = "❌ Location unavailable"
+                return@addOnSuccessListener
             }
+            
+            val site = currentSite
+            if (site == null) {
+                tvGpsStatus.text = "⚠ Waiting for site data..."
+                return@addOnSuccessListener
+            }
+            
+            validateGeofence(location, site)
+        }.addOnFailureListener { error ->
+            Log.e(TAG, "Failed to get location: ${error.message}")
+            tvGpsStatus.text = "❌ Location error"
         }
     }
     
-    // ============================================
-    // CHECK IN
-    // ============================================
-    private fun checkIn() {
-        if (workers.isEmpty()) {
-            Toast.makeText(this, "⚠ No workers loaded", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        if (currentSite == null) {
-            Toast.makeText(this, "⚠ No site loaded", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        val selectedWorker = workers[spinnerWorker.selectedItemPosition]
-        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-        
-        val event = AttendanceEventEntity(
-            workerId = selectedWorker.id,
-            workerName = selectedWorker.name,
-            siteId = currentSite!!.id,
-            siteName = currentSite!!.name,
-            eventType = "IN",
-            timestamp = timestamp,
-            gpsLat = currentLocation?.latitude ?: 0.0,
-            gpsLon = currentLocation?.longitude ?: 0.0,
-            accuracy = currentLocation?.accuracy ?: 0f,
-            isSynced = false,
-            deviceId = deviceId,
-            isValid = true
+    private fun validateGeofence(location: Location, site: SiteEntity) {
+        val distance = calculateDistance(
+            location.latitude, location.longitude,
+            site.latitude, site.longitude
         )
         
-        lifecycleScope.launch {
-            try {
-                val eventId = repository.saveEvent(event)
-                Log.d(TAG, "✅ CHECK IN saved: Event ID $eventId")
-                Toast.makeText(
-                    this@MainActivity,
-                    "✅ ${selectedWorker.name} checked IN",
-                    Toast.LENGTH_SHORT
-                ).show()
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Error saving check-in", e)
-                Toast.makeText(
-                    this@MainActivity,
-                    "❌ Error: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-    }
-    
-    // ============================================
-    // CHECK OUT
-    // ============================================
-    private fun checkOut() {
-        if (workers.isEmpty()) {
-            Toast.makeText(this, "⚠ No workers loaded", Toast.LENGTH_SHORT).show()
-            return
+        val insideGeofence = distance <= site.radius
+        
+        tvGpsStatus.text = if (insideGeofence) {
+            "✓ Inside geofence"
+        } else {
+            "⚠ Outside geofence (${distance.toInt()}m away)"
         }
         
-        if (currentSite == null) {
-            Toast.makeText(this, "⚠ No site loaded", Toast.LENGTH_SHORT).show()
-            return
-        }
+        tvDistance.text = "Distance: ${distance.toInt()}m"
         
-        val selectedWorker = workers[spinnerWorker.selectedItemPosition]
-        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-        
-        val event = AttendanceEventEntity(
-            workerId = selectedWorker.id,
-            workerName = selectedWorker.name,
-            siteId = currentSite!!.id,
-            siteName = currentSite!!.name,
-            eventType = "OUT",
-            timestamp = timestamp,
-            gpsLat = currentLocation?.latitude ?: 0.0,
-            gpsLon = currentLocation?.longitude ?: 0.0,
-            accuracy = currentLocation?.accuracy ?: 0f,
-            isSynced = false,
-            deviceId = deviceId,
-            isValid = true
-        )
-        
-        lifecycleScope.launch {
-            try {
-                val eventId = repository.saveEvent(event)
-                Log.d(TAG, "✅ CHECK OUT saved: Event ID $eventId")
-                Toast.makeText(
-                    this@MainActivity,
-                    "✅ ${selectedWorker.name} checked OUT",
-                    Toast.LENGTH_SHORT
-                ).show()
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Error saving check-out", e)
-                Toast.makeText(
-                    this@MainActivity,
-                    "❌ Error: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-    }
-    
-    // ============================================
-    // SYNC TO BACKEND
-    // ============================================
-    private fun syncToBackend() {
-        Log.d(TAG, "--- MANUAL SYNC TRIGGERED ---")
-        
-        lifecycleScope.launch {
-            try {
-                tvSyncStatus.text = "⏳ Syncing..."
-                
-                val result = repository.syncEvents()
-                
-                result.onSuccess { count ->
-                    Log.d(TAG, "✅ Sync successful: $count events synced")
-                    Toast.makeText(
-                        this@MainActivity,
-                        "✅ Synced $count event(s) to backend!",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }.onFailure { error ->
-                    Log.e(TAG, "❌ Sync failed", error)
-                    Toast.makeText(
-                        this@MainActivity,
-                        "❌ Sync failed: ${error.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Sync error", e)
-                Toast.makeText(
-                    this@MainActivity,
-                    "❌ Sync error: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
+        btnCheckIn.isEnabled = insideGeofence
+        btnCheckOut.isEnabled = insideGeofence
     }
     
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
@@ -432,5 +259,101 @@ class MainActivity : AppCompatActivity() {
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         
         return R * c
+    }
+    
+    // ==========================================
+    // ATTENDANCE RECORDING
+    // ==========================================
+    
+    private fun recordAttendance(eventType: String) {
+        if (workers.isEmpty()) {
+            showError("No workers available")
+            return
+        }
+        
+        val site = currentSite
+        if (site == null) {
+            showError("Site data not loaded")
+            return
+        }
+        
+        val location = currentLocation
+        if (location == null) {
+            showError("Location not available")
+            return
+        }
+        
+        val selectedWorker = workers[spinnerWorker.selectedItemPosition]
+        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        
+        val event = AttendanceEventEntity(
+            workerId = selectedWorker.id,
+            workerName = selectedWorker.name,
+            siteId = site.id,
+            siteName = site.name,
+            eventType = eventType,
+            timestamp = timestamp,
+            gpsLat = location.latitude,
+            gpsLon = location.longitude,
+            accuracy = location.accuracy,
+            isSynced = false,
+            deviceId = deviceId,
+            isValid = true
+        )
+        
+        lifecycleScope.launch {
+            try {
+                repository.saveEvent(event)
+                val action = if (eventType == "IN") "checked IN" else "checked OUT"
+                Toast.makeText(
+                    this@MainActivity,
+                    "✅ ${selectedWorker.name} $action",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to save event: ${e.message}")
+                showError("Failed to save attendance")
+            }
+        }
+    }
+    
+    // ==========================================
+    // SYNC
+    // ==========================================
+    
+    private fun syncToBackend() {
+        lifecycleScope.launch {
+            tvSyncStatus.text = "⏳ Syncing..."
+            
+            repository.syncEvents()
+                .onSuccess { count ->
+                    if (count > 0) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "✅ Synced $count event(s)",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "No events to sync",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+                .onFailure { error ->
+                    Log.e(TAG, "Sync failed: ${error.message}")
+                    showError("Sync failed: ${error.message}")
+                }
+        }
+    }
+    
+    // ==========================================
+    // UTILITIES
+    // ==========================================
+    
+    private fun showError(message: String) {
+        Toast.makeText(this, "⚠ $message", Toast.LENGTH_SHORT).show()
     }
 }
