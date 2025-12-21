@@ -66,4 +66,4 @@ class User(Base):
     
     # Relationships
     organization = relationship("Organization", back_populates="users")
-    # Note: role relationship will be added once we create the Role model
+    role_ref = relationship("Role", back_populates="users")  # ← THIS IS THE FIX!
