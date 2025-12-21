@@ -1,6 +1,8 @@
 package com.example.clockoutandroid
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
@@ -11,6 +13,7 @@ import android.widget.Button
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
@@ -47,6 +50,11 @@ class MainActivity : AppCompatActivity() {
     private var currentLocation: Location? = null
     private var workers = listOf<WorkerEntity>()
     private var currentSite: SiteEntity? = null
+    private var assignedSiteIds = listOf<Int>()
+    private var userId: Int = -1
+    
+    // ✅ NEW: Flag to prevent multiple redirects
+    private var hasCheckedAuth = false
     
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
@@ -57,11 +65,40 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         
+        // ✅ Load auth state FIRST
+        loadAuthState()
+        
         initializeComponents()
         setupClickListeners()
         requestLocationPermission()
         loadDataFromApi()
         observeUnsyncedCount()
+    }
+    
+    // ✅ NEW: Load auth state in onCreate (not onResume)
+    private fun loadAuthState() {
+        val prefs = getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val token = prefs.getString("token", null)
+        
+        Log.d(TAG, "🔐 Loading auth state...")
+        Log.d(TAG, "   Token exists: ${token != null}")
+        
+        if (token != null) {
+            // Load user data
+            userId = prefs.getInt("user_id", -1)
+            val sitesString = prefs.getString("assigned_sites", "") ?: ""
+            
+            assignedSiteIds = if (sitesString.isBlank()) {
+                emptyList()
+            } else {
+                sitesString.split(",").mapNotNull { it.trim().toIntOrNull() }
+            }
+            
+            Log.d(TAG, "   User ID: $userId")
+            Log.d(TAG, "   Assigned sites: $assignedSiteIds")
+        } else {
+            Log.d(TAG, "   No token - should be redirected by LoginActivity")
+        }
     }
     
     // ==========================================
@@ -95,6 +132,29 @@ class MainActivity : AppCompatActivity() {
         btnCheckIn.setOnClickListener { recordAttendance("IN") }
         btnCheckOut.setOnClickListener { recordAttendance("OUT") }
         btnSync.setOnClickListener { syncToBackend() }
+        
+        // Long-press site name to logout
+        tvSiteName.setOnLongClickListener {
+            showLogoutDialog()
+            true
+        }
+    }
+    
+    private fun showLogoutDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Logout")
+            .setMessage("Do you want to logout?")
+            .setPositiveButton("Logout") { _, _ ->
+                Log.d(TAG, "🚪 Logging out...")
+                getSharedPreferences("auth", Context.MODE_PRIVATE).edit().clear().apply()
+                
+                val intent = Intent(this, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
     
     // ==========================================
@@ -106,10 +166,24 @@ class MainActivity : AppCompatActivity() {
             // Load sites
             repository.fetchSitesFromApi(organizationId = 1)
                 .onSuccess { sites ->
-                    if (sites.isNotEmpty()) {
-                        currentSite = sites[0]
+                    Log.d(TAG, "📍 Fetched ${sites.size} total sites")
+                    
+                    // Filter by assigned sites if we have them
+                    val filteredSites = if (assignedSiteIds.isNotEmpty()) {
+                        sites.filter { it.id in assignedSiteIds }
+                    } else {
+                        sites
+                    }
+                    
+                    Log.d(TAG, "📍 After filtering: ${filteredSites.size} sites")
+                    
+                    if (filteredSites.isNotEmpty()) {
+                        currentSite = filteredSites[0]
                         tvSiteName.text = "📍 ${currentSite?.name}"
-                        getLocation() // Refresh location to validate geofence
+                        getLocation()
+                    } else {
+                        tvSiteName.text = "❌ No sites assigned"
+                        Log.e(TAG, "No sites available for user")
                     }
                 }
                 .onFailure { error ->
@@ -120,7 +194,17 @@ class MainActivity : AppCompatActivity() {
             // Load workers
             repository.fetchWorkersFromApi(organizationId = 1)
                 .onSuccess { fetchedWorkers ->
-                    workers = fetchedWorkers
+                    Log.d(TAG, "👷 Fetched ${fetchedWorkers.size} total workers")
+                    
+                    // Filter by assigned sites if we have them
+                    workers = if (assignedSiteIds.isNotEmpty()) {
+                        fetchedWorkers.filter { it.siteId in assignedSiteIds }
+                    } else {
+                        fetchedWorkers
+                    }
+                    
+                    Log.d(TAG, "👷 After filtering: ${workers.size} workers")
+                    
                     updateWorkerSpinner()
                     Toast.makeText(
                         this@MainActivity,
@@ -159,7 +243,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     // ==========================================
-    // LOCATION & GEOFENCE - UPDATED FOR FRESH GPS
+    // LOCATION & GEOFENCE
     // ==========================================
     
     private fun requestLocationPermission() {
@@ -205,12 +289,11 @@ class MainActivity : AppCompatActivity() {
         
         tvGpsStatus.text = "Getting fresh location..."
         
-        // ✅ REQUEST FRESH LOCATION INSTEAD OF CACHED
         val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
             priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
             interval = 5000
             fastestInterval = 2000
-            numUpdates = 1 // Get just one fresh update
+            numUpdates = 1
         }
         
         val locationCallback = object : com.google.android.gms.location.LocationCallback() {
@@ -223,7 +306,6 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
                 
-                // Log fresh coordinates
                 Log.d(TAG, "✅ Fresh GPS: ${location.latitude}, ${location.longitude}")
                 
                 val site = currentSite
@@ -262,12 +344,11 @@ class MainActivity : AppCompatActivity() {
         btnCheckIn.isEnabled = insideGeofence
         btnCheckOut.isEnabled = insideGeofence
         
-        // Log validation result
         Log.d(TAG, "Geofence check: distance=${distance.toInt()}m, radius=${site.radius.toInt()}m, valid=$insideGeofence")
     }
     
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val R = 6371000.0 // Earth radius in meters
+        val R = 6371000.0
         val phi1 = Math.toRadians(lat1)
         val phi2 = Math.toRadians(lat2)
         val deltaPhi = Math.toRadians(lat2 - lat1)

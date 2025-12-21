@@ -34,9 +34,16 @@ interface ApiService {
     suspend fun createEventsBulk(
         @Body events: List<ClockEventRequest>
     ): Response<List<ClockEventResponse>>
+    
+    @FormUrlEncoded
+    @POST("auth/login")
+    suspend fun login(
+        @Field("username") email: String,
+        @Field("password") password: String
+    ): Response<LoginResponse>
 }
 
-// Add these data classes
+// Data classes for login
 data class LoginResponse(
     val access_token: String,
     val token_type: String,
@@ -52,11 +59,3 @@ data class UserData(
     val assigned_sites: List<Int>,
     val organization_id: Int
 )
-
-// Add this method to the ApiService interface
-@FormUrlEncoded
-@POST("auth/login")
-suspend fun login(
-    @Field("username") email: String,  // OAuth2 uses "username" field
-    @Field("password") password: String
-): Response<LoginResponse>
