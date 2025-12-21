@@ -17,4 +17,4 @@ class Role(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationship
-    users = relationship("User", back_populates="role")
+    users = relationship("User", back_populates="role_ref")
