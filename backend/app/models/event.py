@@ -13,6 +13,10 @@ class Device(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     site_id = Column(Integer, ForeignKey("sites.id"))
     is_active = Column(Boolean, default=True)
+    
+    # ✅ STAGE 1: Soft delete
+    deleted_at = Column(DateTime(timezone=True))
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_sync = Column(DateTime(timezone=True))
     
@@ -37,6 +41,12 @@ class ClockEvent(Base):
     
     is_valid = Column(Boolean, default=True)
     distance_m = Column(Float)
+    
+    # ✅ STAGE 1: NFC support fields
+    checkpoint_id = Column(Integer, ForeignKey("checkpoints.id"))
+    nfc_tag_id = Column(String(100))
+    nfc_read_success = Column(Boolean)
+    verification_method = Column(String(20), default='gps')  # gps, nfc, manual, both
     
     synced_at = Column(DateTime(timezone=True), server_default=func.now())
     source = Column(String, default="GPS")

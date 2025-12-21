@@ -22,6 +22,13 @@ class Site(Base):
     checkout_start = Column(Time) # e.g., 14:00:00
     checkout_end = Column(Time)   # e.g., 20:00:00
     
+    # ✅ STAGE 1: Audit fields
+    created_by = Column(Integer, ForeignKey("users.id"))
+    updated_by = Column(Integer, ForeignKey("users.id"))
+    
+    # ✅ STAGE 1: Soft delete
+    deleted_at = Column(DateTime(timezone=True))
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
