@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.database import engine, Base
+from app.routes import checkpoints, audit, timeline
+
 
 # Import routes
 from app.routes import auth, sites, workers, events
@@ -33,6 +35,9 @@ app.include_router(worker_analytics.router, prefix=f"{settings.API_V1_STR}/worke
 app.include_router(sites.router, prefix=f"{settings.API_V1_STR}/sites", tags=["sites"])
 app.include_router(workers.router, prefix=f"{settings.API_V1_STR}/workers", tags=["workers"])
 app.include_router(events.router, prefix=f"{settings.API_V1_STR}/events", tags=["events"])
+app.include_router(checkpoints.router, prefix=f"{settings.API_V1_STR}/checkpoints", tags=["checkpoints"])
+app.include_router(audit.router, prefix=f"{settings.API_V1_STR}/audit", tags=["audit"])
+app.include_router(timeline.router, prefix=f"{settings.API_V1_STR}/timeline", tags=["timeline"])
 
 # ✅ STAGE 2.1: Organizations API
 from app.routes import organizations
@@ -41,6 +46,9 @@ app.include_router(organizations.router, prefix=f"{settings.API_V1_STR}/organiza
 # ✅ STAGE 2.2: Users & Managers API
 from app.routes import users
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
+
+from app.routes import reports
+app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["reports"])
 
 @app.get("/")
 async def root():
