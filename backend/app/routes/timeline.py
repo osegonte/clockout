@@ -14,7 +14,7 @@ from app.models.event import ClockEvent
 from app.models.worker import Worker
 from app.models.site import Site
 from app.models.user import User
-from app.auth import get_current_user
+from app.routes.auth import get_current_user
 
 
 router = APIRouter()
@@ -422,7 +422,7 @@ async def get_site_activity(
 
 @router.get("/daily/{date}")
 async def get_daily_timeline(
-    date: str = Query(..., description="Date in YYYY-MM-DD format"),
+    date: str,
     site_id: Optional[int] = Query(None, description="Filter by specific site"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

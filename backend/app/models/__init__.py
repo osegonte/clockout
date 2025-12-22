@@ -20,7 +20,8 @@ from app.models.user_site import UserSite
 
 # 7. Checkpoint (depends on Site, User)
 from app.models.checkpoint import Checkpoint
-
+# ✅ STAGE 2.5: Audit Log
+from app.models.audit_log import AuditLog
 
 # Export all models
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "Worker",
     "Device",
     "ClockEvent",
+    "AuditLog",
     
     # Junction tables
     "UserSite",

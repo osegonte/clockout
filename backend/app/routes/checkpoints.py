@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models.checkpoint import Checkpoint
 from app.models.site import Site
 from app.models.user import User
-from app.auth import get_current_user
+from app.routes.auth import get_current_user
 
 
 router = APIRouter()
