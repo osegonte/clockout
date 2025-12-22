@@ -14,13 +14,17 @@ class Checkpoint(Base):
     checkpoint_type = Column(String(20))  # entry, exit, task, patrol
     
     nfc_tag_id = Column(String(100), unique=True, index=True)
-    mobile_nfc_id = Column(String(100))
+    qr_code = Column(String(100))  # Added QR code support
     
-    location_lat = Column(Numeric(10, 8))
-    location_lng = Column(Numeric(11, 8))
-    radius_m = Column(Numeric(10, 2), default=10.0)
+    # GPS coordinates (renamed for API consistency)
+    gps_lat = Column(Numeric(10, 8))
+    gps_lon = Column(Numeric(11, 8))
     
     is_active = Column(Boolean, default=True)
     created_by = Column(Integer, ForeignKey("users.id"))
+    
+    # Soft delete support
+    deleted_at = Column(DateTime(timezone=True))
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
