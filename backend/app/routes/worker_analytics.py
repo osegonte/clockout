@@ -74,7 +74,7 @@ class WorkerSearchResponse(BaseModel):
     id: int
     first_name: str
     last_name: str
-    employee_id: str
+    employee_id: Optional[str]  # Can be NULL
     phone: Optional[str]
     site_name: str
     is_active: bool
@@ -128,11 +128,7 @@ async def get_worker_performance(
     """
     Get performance metrics for a worker
     
-    Calculates:
-    - Total shifts and hours
-    - Attendance rate
-    - On-time arrival rate
-    - Performance score
+    Note: Returns zeroed metrics until attendance_events table is created in future stage
     """
     # Get worker
     worker = db.query(Worker).filter(
@@ -147,101 +143,20 @@ async def get_worker_performance(
     if current_user.organization_id != worker.organization_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Calculate date range
-    end_date = datetime.now(timezone.utc)
-    start_date = end_date - timedelta(days=days)
-    
-    # Get attendance events
-    events_query = text("""
-        SELECT 
-            COUNT(*) as total_shifts,
-            SUM(CASE WHEN clock_in_time IS NOT NULL THEN 1 ELSE 0 END) as attended_shifts,
-            SUM(CASE 
-                WHEN clock_in_time IS NOT NULL 
-                AND clock_out_time IS NOT NULL 
-                THEN EXTRACT(EPOCH FROM (clock_out_time - clock_in_time)) / 3600.0 
-                ELSE 0 
-            END) as total_hours,
-            SUM(CASE 
-                WHEN clock_in_time IS NOT NULL 
-                AND clock_in_time <= expected_clock_in 
-                THEN 1 
-                ELSE 0 
-            END) as on_time_arrivals,
-            SUM(CASE 
-                WHEN clock_in_time IS NOT NULL 
-                AND clock_in_time > expected_clock_in 
-                THEN 1 
-                ELSE 0 
-            END) as late_arrivals,
-            SUM(CASE 
-                WHEN clock_out_time IS NOT NULL 
-                AND clock_out_time < expected_clock_out 
-                THEN 1 
-                ELSE 0 
-            END) as early_departures
-        FROM attendance_events
-        WHERE worker_id = :worker_id
-        AND created_at >= :start_date
-        AND created_at <= :end_date
-        AND deleted_at IS NULL
-    """)
-    
-    result = db.execute(events_query, {
-        "worker_id": worker_id,
-        "start_date": start_date,
-        "end_date": end_date
-    }).fetchone()
-    
-    total_shifts = result[0] or 0
-    attended_shifts = result[1] or 0
-    total_hours = result[2] or 0.0
-    on_time_arrivals = result[3] or 0
-    late_arrivals = result[4] or 0
-    early_departures = result[5] or 0
-    
-    # Calculate rates
-    attendance_rate = (attended_shifts / total_shifts * 100) if total_shifts > 0 else 0
-    on_time_rate = (on_time_arrivals / attended_shifts * 100) if attended_shifts > 0 else 0
-    avg_hours_per_shift = (total_hours / attended_shifts) if attended_shifts > 0 else 0
-    
-    # Calculate performance score
-    performance_score = calculate_performance_score(
-        attendance_rate=attendance_rate,
-        on_time_rate=on_time_rate,
-        hours_worked=total_hours
-    )
-    
-    # Get last 30 days hours
-    last_30_days_query = text("""
-        SELECT SUM(EXTRACT(EPOCH FROM (clock_out_time - clock_in_time)) / 3600.0)
-        FROM attendance_events
-        WHERE worker_id = :worker_id
-        AND created_at >= :last_30_days
-        AND clock_in_time IS NOT NULL
-        AND clock_out_time IS NOT NULL
-        AND deleted_at IS NULL
-    """)
-    
-    last_30_result = db.execute(last_30_days_query, {
-        "worker_id": worker_id,
-        "last_30_days": end_date - timedelta(days=30)
-    }).fetchone()
-    
-    last_30_days_hours = last_30_result[0] or 0.0
-    
+    # Return zeroed metrics (attendance_events table doesn't exist yet)
+    # This will be implemented in a future stage when attendance tracking is added
     return PerformanceMetrics(
         worker_id=worker.id,
         worker_name=worker.name,
-        total_shifts=total_shifts,
-        total_hours_worked=round(total_hours, 2),
-        on_time_arrivals=on_time_arrivals,
-        late_arrivals=late_arrivals,
-        early_departures=early_departures,
-        attendance_rate=round(attendance_rate, 2),
-        average_hours_per_shift=round(avg_hours_per_shift, 2),
-        last_30_days_hours=round(last_30_days_hours, 2),
-        performance_score=performance_score
+        total_shifts=0,
+        total_hours_worked=0.0,
+        on_time_arrivals=0,
+        late_arrivals=0,
+        early_departures=0,
+        attendance_rate=0.0,
+        average_hours_per_shift=0.0,
+        last_30_days_hours=0.0,
+        performance_score=0.0
     )
 
 
@@ -255,7 +170,7 @@ async def get_worker_attendance(
     """
     Get attendance history for a worker
     
-    Returns daily attendance records with clock in/out times
+    Note: Returns empty list until attendance_events table is created in future stage
     """
     # Get worker
     worker = db.query(Worker).filter(
@@ -270,59 +185,9 @@ async def get_worker_attendance(
     if current_user.organization_id != worker.organization_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Calculate date range
-    end_date = datetime.now(timezone.utc)
-    start_date = end_date - timedelta(days=days)
-    
-    # Get attendance records
-    attendance_query = text("""
-        SELECT 
-            e.id,
-            e.created_at as date,
-            e.clock_in_time,
-            e.clock_out_time,
-            CASE 
-                WHEN e.clock_in_time IS NOT NULL AND e.clock_out_time IS NOT NULL
-                THEN EXTRACT(EPOCH FROM (e.clock_out_time - e.clock_in_time)) / 3600.0
-                ELSE NULL
-            END as hours_worked,
-            s.name as site_name,
-            CASE
-                WHEN e.clock_in_time IS NULL THEN 'absent'
-                WHEN e.clock_in_time > e.expected_clock_in THEN 'late'
-                WHEN e.clock_out_time IS NOT NULL AND e.clock_out_time < e.expected_clock_out THEN 'early_departure'
-                ELSE 'present'
-            END as status,
-            e.notes
-        FROM attendance_events e
-        LEFT JOIN sites s ON e.site_id = s.id
-        WHERE e.worker_id = :worker_id
-        AND e.created_at >= :start_date
-        AND e.created_at <= :end_date
-        AND e.deleted_at IS NULL
-        ORDER BY e.created_at DESC
-    """)
-    
-    results = db.execute(attendance_query, {
-        "worker_id": worker_id,
-        "start_date": start_date,
-        "end_date": end_date
-    }).fetchall()
-    
-    attendance_records = []
-    for row in results:
-        attendance_records.append(AttendanceRecord(
-            id=row[0],
-            date=row[1],
-            clock_in_time=row[2],
-            clock_out_time=row[3],
-            hours_worked=round(row[4], 2) if row[4] else None,
-            site_name=row[5] or "Unknown",
-            status=row[6],
-            notes=row[7]
-        ))
-    
-    return attendance_records
+    # Return empty list (attendance_events table doesn't exist yet)
+    # This will be implemented in a future stage when attendance tracking is added
+    return []
 
 
 @router.get("/{worker_id}/activity", response_model=List[ActivityLog])
@@ -336,7 +201,7 @@ async def get_worker_activity(
     """
     Get activity log for a worker
     
-    Shows all actions performed on this worker record
+    Note: Returns empty list until audit_log table is created in future stage
     """
     # Get worker
     worker = db.query(Worker).filter(
@@ -351,48 +216,9 @@ async def get_worker_activity(
     if current_user.organization_id != worker.organization_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Calculate date range
-    end_date = datetime.now(timezone.utc)
-    start_date = end_date - timedelta(days=days)
-    
-    # Get audit logs
-    audit_query = text("""
-        SELECT 
-            al.id,
-            al.timestamp,
-            al.action,
-            al.description,
-            u.full_name as performed_by,
-            al.details
-        FROM audit_log al
-        LEFT JOIN users u ON al.performed_by = u.id
-        WHERE al.entity_type = 'worker'
-        AND al.entity_id = :worker_id
-        AND al.timestamp >= :start_date
-        AND al.timestamp <= :end_date
-        ORDER BY al.timestamp DESC
-        LIMIT :limit
-    """)
-    
-    results = db.execute(audit_query, {
-        "worker_id": worker_id,
-        "start_date": start_date,
-        "end_date": end_date,
-        "limit": limit
-    }).fetchall()
-    
-    activity_logs = []
-    for row in results:
-        activity_logs.append(ActivityLog(
-            id=row[0],
-            timestamp=row[1],
-            action=row[2],
-            description=row[3],
-            performed_by=row[4] or "System",
-            details=row[5]
-        ))
-    
-    return activity_logs
+    # Return empty list (audit_log table doesn't exist yet)
+    # This will be implemented in a future stage when audit logging is added
+    return []
 
 
 @router.post("/bulk-create", status_code=201)
@@ -405,6 +231,7 @@ async def bulk_create_workers(
     Create multiple workers at once
     
     Only admins can bulk create workers
+    Skips workers with duplicate employee_id gracefully
     """
     # Check permissions
     if current_user.role != "admin" and current_user.user_mode != "admin":
@@ -415,6 +242,22 @@ async def bulk_create_workers(
     
     for idx, worker_data in enumerate(bulk_data.workers):
         try:
+            # Check for duplicate employee_id first
+            employee_id = worker_data.get("employee_id")
+            if employee_id:
+                existing = db.query(Worker).filter(
+                    Worker.employee_id == employee_id,
+                    Worker.deleted_at.is_(None)
+                ).first()
+                
+                if existing:
+                    errors.append({
+                        "index": idx,
+                        "error": f"Worker with employee_id '{employee_id}' already exists (ID: {existing.id})",
+                        "data": worker_data
+                    })
+                    continue  # Skip this worker
+            
             # Create worker using ACTUAL Worker model fields
             full_name = f"{worker_data.get('first_name', '')} {worker_data.get('last_name', '')}".strip()
             
@@ -422,7 +265,7 @@ async def bulk_create_workers(
                 organization_id=current_user.organization_id,
                 site_id=worker_data.get("site_id"),
                 name=full_name or worker_data.get("name"),
-                employee_id=worker_data.get("employee_id"),
+                employee_id=employee_id,
                 phone=worker_data.get("phone"),
                 is_active=worker_data.get("is_active", True),
                 worker_type=worker_data.get("worker_type", "full_time"),
@@ -443,16 +286,26 @@ async def bulk_create_workers(
             })
             
         except Exception as e:
+            db.rollback()  # Rollback on error to prevent PendingRollbackError
             errors.append({
                 "index": idx,
                 "error": str(e),
                 "data": worker_data
             })
     
-    db.commit()
+    # Only commit if we created at least one worker
+    if created_workers:
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to commit workers: {str(e)}"
+            )
     
     return {
-        "message": f"Created {len(created_workers)} workers",
+        "message": f"Created {len(created_workers)} workers, skipped {len(errors)} duplicates/errors",
         "created": created_workers,
         "errors": errors,
         "total_attempted": len(bulk_data.workers),
@@ -612,7 +465,7 @@ async def search_workers(
             id=row[0],
             first_name=first_name,
             last_name=last_name,
-            employee_id=row[2],
+            employee_id=row[2] or "",  # Provide default empty string for NULL
             phone=row[3],
             site_name=row[4] or "Unassigned",
             is_active=row[5],
