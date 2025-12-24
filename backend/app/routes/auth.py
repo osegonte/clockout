@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr  # UPDATED: Added EmailStr
 
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, Organization  # UPDATED: Added Organization
 from app.core.config import settings
 
 router = APIRouter()
@@ -38,6 +38,14 @@ class UserResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+# NEW: Registration schema
+class OrganizationRegistration(BaseModel):
+    organization_name: str
+    admin_name: str
+    email: EmailStr
+    password: str
 
 
 def verify_password(plain_password, hashed_password):
@@ -152,6 +160,73 @@ async def get_me(current_user: User = Depends(get_current_user), db: Session = D
         mode=current_user.user_mode,  # CHANGED: Map back to "mode"
         assigned_sites=assigned_sites
     )
+
+
+# NEW: Organization Registration Endpoint
+@router.post("/register/organization", status_code=201)
+async def register_organization(
+    registration: OrganizationRegistration,
+    db: Session = Depends(get_db)
+):
+    """
+    Register a new organization with an admin user
+    
+    Creates:
+    1. Organization with trial subscription
+    2. Admin user for that organization
+    """
+    # Check if email already exists
+    existing_user = db.query(User).filter(User.email == registration.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+    
+    # Check if organization name already exists
+    existing_org = db.query(Organization).filter(Organization.name == registration.organization_name).first()
+    if existing_org:
+        raise HTTPException(
+            status_code=400,
+            detail="Organization name already taken"
+        )
+    
+    # Create organization with trial subscription
+    new_org = Organization(
+        name=registration.organization_name,
+        owner_name=registration.admin_name,
+        owner_email=registration.email,
+        subscription_plan="free",
+        subscription_status="trial",
+        max_sites=1,
+        max_workers=10,
+        max_managers=2
+    )
+    db.add(new_org)
+    db.flush()  # Get the org.id without committing
+    
+    # Create admin user
+    new_user = User(
+        email=registration.email,
+        hashed_password=get_password_hash(registration.password),
+        full_name=registration.admin_name,
+        role="admin",
+        user_mode="admin",
+        organization_id=new_org.id,
+        is_active=True
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_org)
+    db.refresh(new_user)
+    
+    return {
+        "message": "Organization created successfully",
+        "organization_id": new_org.id,
+        "organization_name": new_org.name,
+        "admin_email": new_user.email,
+        "subscription_status": new_org.subscription_status
+    }
 
 
 @router.post("/register")
