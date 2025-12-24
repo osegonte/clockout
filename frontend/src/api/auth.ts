@@ -1,5 +1,19 @@
 import { apiClient } from './client';
-import { LoginResponse } from '../types/api';
+
+// Define types inline for now
+interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: {
+    id: number;
+    email: string;
+    full_name: string | null;
+    role: string;
+    mode: string;
+    assigned_sites: number[];
+    organization_id: number;
+  };
+}
 
 export const authApi = {
   // Login with email and password
