@@ -15,6 +15,21 @@ interface LoginResponse {
   };
 }
 
+interface RegisterData {
+  organization_name: string;
+  admin_name: string;
+  email: string;
+  password: string;
+}
+
+interface RegisterResponse {
+  message: string;
+  organization_id: number;
+  organization_name: string;
+  admin_email: string;
+  subscription_status: string;
+}
+
 export const authApi = {
   // Login with email and password
   login: async (email: string, password: string): Promise<LoginResponse> => {
@@ -29,6 +44,12 @@ export const authApi = {
       },
     });
 
+    return response.data;
+  },
+
+  // Register new organization
+  register: async (data: RegisterData): Promise<RegisterResponse> => {
+    const response = await apiClient.post<RegisterResponse>('/auth/register/organization', data);
     return response.data;
   },
 

@@ -11,6 +11,7 @@ export default function Register() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -34,7 +35,6 @@ export default function Register() {
     setLoading(true);
 
     try {
-      // We'll create the register endpoint next
       await authApi.register({
         organization_name: formData.organizationName,
         admin_name: formData.adminName,
@@ -42,9 +42,12 @@ export default function Register() {
         password: formData.password,
       });
 
-      // Success! Redirect to login
-      alert('Account created successfully! Please log in.');
-      window.location.href = '/login';
+      setSuccess(true);
+      
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 2000);
     } catch (err: any) {
       console.error('Registration error:', err);
       setError(err.response?.data?.detail || 'Registration failed. Please try again.');
@@ -52,6 +55,18 @@ export default function Register() {
       setLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
+          <div className="text-6xl mb-4">✅</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
+          <p className="text-gray-600 mb-4">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
@@ -134,6 +149,7 @@ export default function Register() {
               placeholder="••••••••"
               disabled={loading}
             />
+            <p className="text-xs text-gray-500 mt-1">At least 8 characters</p>
           </div>
 
           <div>
