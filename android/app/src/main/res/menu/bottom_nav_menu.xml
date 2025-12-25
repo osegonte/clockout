@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_home"
+        android:title="Home" />
+    <item
+        android:id="@+id/nav_attendance"
+        android:title="Attendance" />
+    <item
+        android:id="@+id/nav_workers"
+        android:title="Workers" />
+    <item
+        android:id="@+id/nav_sites"
+        android:title="Sites" />
+    <item
+        android:id="@+id/nav_profile"
+        android:title="Profile" />
+</menu>
