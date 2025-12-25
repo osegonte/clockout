@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 
 export default function Register() {
@@ -12,6 +13,8 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -45,7 +48,7 @@ export default function Register() {
       setSuccess(true);
       
       setTimeout(() => {
-        window.location.href = '/login';
+        navigate('/login');
       }, 2000);
     } catch (err: any) {
       console.error('Registration error:', err);
@@ -194,9 +197,9 @@ export default function Register() {
 
           <p className="text-center text-sm text-gray-600 pt-4">
             Already have an account?{' '}
-            <a href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+            <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
               Sign in
-            </a>
+            </Link>
           </p>
         </form>
       </div>

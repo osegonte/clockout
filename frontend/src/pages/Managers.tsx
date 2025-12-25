@@ -1,0 +1,27 @@
+export default function Managers() {
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Managers Management</h2>
+            <p className="text-gray-600 mt-1">Manage site managers and their permissions</p>
+          </div>
+          <button className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition shadow-lg hover:shadow-xl">
+            + Add Manager
+          </button>
+        </div>
+      </div>
+
+      {/* Managers List - Coming Soon */}
+      <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+        <h3 className="text-xl font-bold text-gray-900 mb-2">Managers Management Coming Soon</h3>
+        <p className="text-gray-600 max-w-md mx-auto">
+          This section will allow you to add and manage site managers.
+          Features include manager accounts, site assignments, and access control.
+        </p>
+      </div>
+    </div>
+  );
+}
