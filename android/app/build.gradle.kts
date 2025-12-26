@@ -65,6 +65,10 @@ dependencies {
     
     // Fragment KTX for easier fragment handling
     implementation("androidx.fragment:fragment-ktx:1.6.2")
+
+     // CoordinatorLayout for FAB
+    implementation("androidx.coordinatorlayout:coordinatorlayout:1.2.0")
+    
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

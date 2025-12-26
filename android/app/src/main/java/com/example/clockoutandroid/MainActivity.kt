@@ -6,32 +6,31 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.example.clockoutandroid.ui.fragments.*
+import com.example.clockoutandroid.ui.fragments.AttendanceFragment
+import com.example.clockoutandroid.ui.fragments.HomeFragment
+import com.example.clockoutandroid.ui.fragments.ProfileFragment
+import com.example.clockoutandroid.ui.fragments.SitesFragment
+import com.example.clockoutandroid.ui.fragments.WorkersFragment
 
 class MainActivity : AppCompatActivity() {
     
     private lateinit var bottomNav: BottomNavigationView
-    private var userMode: String = "manager"  // Will load from SharedPreferences
+    private var userMode: String = "manager"
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Check authentication
         if (!isLoggedIn()) {
             navigateToLogin()
             return
         }
         
-        // Load user mode
         loadUserMode()
         
-        // Set content view to new container layout
         setContentView(R.layout.activity_main_container)
         
-        // Setup navigation
         setupBottomNavigation()
         
-        // Load default fragment (Home)
         if (savedInstanceState == null) {
             loadFragment(HomeFragment())
         }
@@ -42,7 +41,6 @@ class MainActivity : AppCompatActivity() {
         val token = prefs.getString("token", null)
         val loginTime = prefs.getLong("login_time", 0)
         
-        // Token expires after 7 days
         val tokenValid = token != null && (System.currentTimeMillis() - loginTime) < 7 * 24 * 60 * 60 * 1000
         
         return tokenValid
@@ -56,7 +54,6 @@ class MainActivity : AppCompatActivity() {
     private fun setupBottomNavigation() {
         bottomNav = findViewById(R.id.bottomNavigation)
         
-        // Hide Workers/Sites tabs for managers
         if (userMode == "manager") {
             bottomNav.menu.findItem(R.id.nav_workers).isVisible = false
             bottomNav.menu.findItem(R.id.nav_sites).isVisible = false

@@ -96,11 +96,11 @@ class AttendanceFragment : Fragment() {
     }
 
     private fun loadSiteAndWorkers() {
-        val sharedPref = requireActivity().getSharedPreferences("ClockOutPrefs", Context.MODE_PRIVATE)
-        val token = sharedPref.getString("access_token", "") ?: ""
-        val userRole = sharedPref.getString("user_role", "worker") ?: "worker"
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("token", "") ?: ""
+        val userMode = sharedPref.getString("user_mode", "manager") ?: "manager"
         
-        Log.d("AttendanceFragment", "Loading data for role: " + userRole)
+        Log.d("AttendanceFragment", "Loading data for mode: " + userMode)
         
         lifecycleScope.launch {
             try {
@@ -112,7 +112,8 @@ class AttendanceFragment : Fragment() {
                     
                     if (sites.isNotEmpty()) {
                         currentSite = sites[0]
-                        tvSiteName.text = currentSite?.name ?: "Unknown Site"
+                        val siteName = currentSite?.name ?: "Unknown Site"
+                        tvSiteName.text = siteName
                         requestLocationUpdates()
                     } else {
                         tvSiteName.text = "No sites available"
@@ -133,8 +134,8 @@ class AttendanceFragment : Fragment() {
     }
 
     private fun updateWorkerSpinner() {
-        val sharedPref = requireActivity().getSharedPreferences("ClockOutPrefs", Context.MODE_PRIVATE)
-        val token = sharedPref.getString("access_token", "") ?: ""
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("token", "") ?: ""
         
         lifecycleScope.launch {
             try {
@@ -205,7 +206,8 @@ class AttendanceFragment : Fragment() {
             btnCheckIn.isEnabled = true
             btnCheckOut.isEnabled = true
         } else {
-            tvGpsStatus.text = "Outside geofence (" + distance.toInt() + "m away)"
+            val distanceInt = distance.toInt()
+            tvGpsStatus.text = "Outside geofence (" + distanceInt + "m away)"
             btnCheckIn.isEnabled = false
             btnCheckOut.isEnabled = false
         }
@@ -227,7 +229,7 @@ class AttendanceFragment : Fragment() {
             return
         }
         
-        val sharedPref = requireActivity().getSharedPreferences("ClockOutPrefs", Context.MODE_PRIVATE)
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
         
         val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
         val eventId = UUID.randomUUID().toString()
@@ -248,21 +250,19 @@ class AttendanceFragment : Fragment() {
         
         sharedPref.edit().putString("pending_events", eventsArray.toString()).apply()
         
-        Toast.makeText(
-            requireContext(),
-            selectedWorkerName + " checked " + eventType,
-            Toast.LENGTH_SHORT
-        ).show()
+        val toastMessage = selectedWorkerName + " checked " + eventType
+        Toast.makeText(requireContext(), toastMessage, Toast.LENGTH_SHORT).show()
         
         updateSyncStatus()
     }
 
     private fun updateSyncStatus() {
-        val sharedPref = requireActivity().getSharedPreferences("ClockOutPrefs", Context.MODE_PRIVATE)
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
         val pendingEvents = sharedPref.getString("pending_events", "[]") ?: "[]"
         val eventsArray = JSONArray(pendingEvents)
         
-        tvSyncStatus.text = eventsArray.length().toString() + " events pending sync"
+        val eventCount = eventsArray.length()
+        tvSyncStatus.text = eventCount.toString() + " events pending sync"
     }
 
     override fun onResume() {

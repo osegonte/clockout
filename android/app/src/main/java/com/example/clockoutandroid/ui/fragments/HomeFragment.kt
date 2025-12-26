@@ -12,7 +12,6 @@ import androidx.lifecycle.lifecycleScope
 import com.example.clockoutandroid.R
 import com.example.clockoutandroid.data.remote.RetrofitInstance
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.android.material.card.MaterialCardView
 import kotlinx.coroutines.launch
 
 class HomeFragment : Fragment() {
@@ -48,15 +47,14 @@ class HomeFragment : Fragment() {
     }
 
     private fun loadDashboardData() {
-        val sharedPref = requireActivity().getSharedPreferences("ClockOutPrefs", Context.MODE_PRIVATE)
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
         val userName = sharedPref.getString("user_name", "User") ?: "User"
         
-        // Simple concatenation - no interpolation
         tvWelcome.text = "Welcome back, " + userName
         
         lifecycleScope.launch {
             try {
-                val token = sharedPref.getString("access_token", "") ?: ""
+                val token = sharedPref.getString("token", "") ?: ""
                 
                 val workersResponse = RetrofitInstance.api.getWorkers("Bearer " + token)
                 if (workersResponse.isSuccessful) {
@@ -86,7 +84,7 @@ class HomeFragment : Fragment() {
 
     private fun setupClickListeners() {
         btnMarkAttendance.setOnClickListener {
-            val bottomNav = activity?.findViewById<BottomNavigationView>(R.id.bottom_navigation)
+            val bottomNav = activity?.findViewById<BottomNavigationView>(R.id.bottomNavigation)
             bottomNav?.selectedItemId = R.id.nav_attendance
         }
     }

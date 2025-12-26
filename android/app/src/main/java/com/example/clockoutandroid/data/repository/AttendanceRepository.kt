@@ -14,10 +14,6 @@ class AttendanceRepository(private val database: AppDatabase) {
     private val TAG = "AttendanceRepository"
     private val api = RetrofitInstance.api
     
-    // ============================================
-    // LOCAL DATABASE OPERATIONS
-    // ============================================
-    
     suspend fun saveEvent(event: AttendanceEventEntity): Long {
         return database.attendanceEventDao().insert(event)
     }
@@ -34,48 +30,41 @@ class AttendanceRepository(private val database: AppDatabase) {
         return database.attendanceEventDao().getRecentEvents()
     }
     
-    // ============================================
-    // WORKERS
-    // ============================================
-    
     fun getAllWorkers(): Flow<List<WorkerEntity>> {
         return database.workerDao().getAllWorkers()
     }
     
-    suspend fun fetchWorkersFromApi(organizationId: Int = 1, siteId: Int? = null): Result<List<WorkerEntity>> {
+    suspend fun fetchWorkersFromApi(token: String, organizationId: Int? = null, siteId: Int? = null): Result<Int> {
         return try {
             Log.d(TAG, "Fetching workers from API...")
-            val response = api.getWorkers(organizationId, siteId)
+            val response = api.getWorkers("Bearer " + token, organizationId, siteId)
             
             if (response.isSuccessful && response.body() != null) {
-                val workers = response.body()!!.map { dto ->
+                val workers = response.body()!!
+                
+                val workerEntities = workers.map { worker ->
                     WorkerEntity(
-                        id = dto.id,
-                        name = dto.name,
-                        phone = dto.phone,
-                        siteId = dto.site_id ?: 1
+                        id = worker.id,
+                        name = worker.name,
+                        phone = worker.phone,
+                        siteId = worker.siteId ?: 1
                     )
                 }
                 
-                // Save to local database
                 database.workerDao().deleteAll()
-                database.workerDao().insertAll(workers)
+                database.workerDao().insertAll(workerEntities)
                 
-                Log.d(TAG, "Fetched ${workers.size} workers from API")
-                Result.success(workers)
+                Log.d(TAG, "Fetched " + workers.size + " workers from API")
+                Result.success(workers.size)
             } else {
-                Log.e(TAG, "API error: ${response.code()} - ${response.message()}")
-                Result.failure(Exception("Failed to fetch workers: ${response.message()}"))
+                Log.e(TAG, "API error: " + response.code())
+                Result.failure(Exception("Failed to fetch workers"))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Network error fetching workers", e)
             Result.failure(e)
         }
     }
-    
-    // ============================================
-    // SITES
-    // ============================================
     
     fun getAllSites(): Flow<List<SiteEntity>> {
         return database.siteDao().getAllSites()
@@ -85,41 +74,38 @@ class AttendanceRepository(private val database: AppDatabase) {
         return database.siteDao().getSiteById(siteId)
     }
     
-    suspend fun fetchSitesFromApi(organizationId: Int = 1): Result<List<SiteEntity>> {
+    suspend fun fetchSitesFromApi(token: String, organizationId: Int? = null): Result<Int> {
         return try {
             Log.d(TAG, "Fetching sites from API...")
-            val response = api.getSites(organizationId)
+            val response = api.getSites("Bearer " + token, organizationId)
             
             if (response.isSuccessful && response.body() != null) {
-                val sites = response.body()!!.map { dto ->
+                val sites = response.body()!!
+                
+                val siteEntities = sites.map { site ->
                     SiteEntity(
-                        id = dto.id,
-                        name = dto.name,
-                        latitude = dto.gps_lat,
-                        longitude = dto.gps_lon,
-                        radius = dto.radius_m
+                        id = site.id,
+                        name = site.name,
+                        latitude = site.latitude,
+                        longitude = site.longitude,
+                        radius = site.radius
                     )
                 }
                 
-                // Save to local database
                 database.siteDao().deleteAll()
-                database.siteDao().insertAll(sites)
+                database.siteDao().insertAll(siteEntities)
                 
-                Log.d(TAG, "Fetched ${sites.size} sites from API")
-                Result.success(sites)
+                Log.d(TAG, "Fetched " + sites.size + " sites from API")
+                Result.success(sites.size)
             } else {
-                Log.e(TAG, "API error: ${response.code()} - ${response.message()}")
-                Result.failure(Exception("Failed to fetch sites: ${response.message()}"))
+                Log.e(TAG, "API error: " + response.code())
+                Result.failure(Exception("Failed to fetch sites"))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Network error fetching sites", e)
             Result.failure(e)
         }
     }
-    
-    // ============================================
-    // SYNC EVENTS TO API
-    // ============================================
     
     suspend fun syncEvents(): Result<Int> {
         return try {
@@ -130,9 +116,8 @@ class AttendanceRepository(private val database: AppDatabase) {
                 return Result.success(0)
             }
             
-            Log.d(TAG, "Syncing ${unsyncedEvents.size} events to API...")
+            Log.d(TAG, "Syncing " + unsyncedEvents.size + " events to API...")
             
-            // Convert to API format
             val apiEvents = unsyncedEvents.map { event ->
                 ClockEventRequest(
                     worker_id = event.workerId,
@@ -146,22 +131,20 @@ class AttendanceRepository(private val database: AppDatabase) {
                 )
             }
             
-            // Send to API
             val response = api.createEventsBulk(apiEvents)
             
             if (response.isSuccessful && response.body() != null) {
                 val syncedCount = response.body()!!.size
                 
-                // Mark as synced in local database
                 unsyncedEvents.forEach { event ->
                     database.attendanceEventDao().markAsSynced(event.id)
                 }
                 
-                Log.d(TAG, "Successfully synced $syncedCount events")
+                Log.d(TAG, "Successfully synced " + syncedCount + " events")
                 Result.success(syncedCount)
             } else {
-                Log.e(TAG, "Sync failed: ${response.code()} - ${response.message()}")
-                Result.failure(Exception("Sync failed: ${response.message()}"))
+                Log.e(TAG, "Sync failed: " + response.code())
+                Result.failure(Exception("Sync failed"))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Network error during sync", e)

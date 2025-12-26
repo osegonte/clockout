@@ -2,10 +2,11 @@ package com.example.clockoutandroid.data.remote
 
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
+import retrofit2.http.Header
+import com.example.clockoutandroid.data.models.Site
+import com.example.clockoutandroid.data.models.Worker
 import com.example.clockoutandroid.data.remote.dto.ClockEventRequest
 import com.example.clockoutandroid.data.remote.dto.ClockEventResponse
-import com.example.clockoutandroid.data.remote.dto.SiteResponse
-import com.example.clockoutandroid.data.remote.dto.WorkerResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -16,14 +17,16 @@ interface ApiService {
     
     @GET("workers")
     suspend fun getWorkers(
+        @Header("Authorization") token: String,
         @Query("organization_id") organizationId: Int? = null,
         @Query("site_id") siteId: Int? = null
-    ): Response<List<WorkerResponse>>
+    ): Response<List<Worker>>
     
     @GET("sites")
     suspend fun getSites(
+        @Header("Authorization") token: String,
         @Query("organization_id") organizationId: Int? = null
-    ): Response<List<SiteResponse>>
+    ): Response<List<Site>>
     
     @POST("events")
     suspend fun createEvent(
@@ -43,7 +46,6 @@ interface ApiService {
     ): Response<LoginResponse>
 }
 
-// Data classes for login
 data class LoginResponse(
     val access_token: String,
     val token_type: String,
