@@ -1,109 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="32dp"
-    android:background="#F5F5F5"
-    android:gravity="center">
+    android:gravity="center"
+    android:background="@android:color/white">
 
-    <!-- Logo/Title -->
+    <!-- Logo/Title Section -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="🔐 ClockOut"
-        android:textSize="42sp"
+        android:text="ClockOut"
+        android:textSize="32sp"
         android:textStyle="bold"
-        android:textColor="#1976D2"
-        android:layout_marginBottom="16dp"/>
+        android:textColor="@android:color/black"
+        android:layout_marginBottom="8dp"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Farm Attendance System"
+        android:text="Farm Attendance Tracking"
         android:textSize="16sp"
         android:textColor="#666666"
         android:layout_marginBottom="48dp"/>
 
-    <!-- Login Card -->
-    <androidx.cardview.widget.CardView
+    <!-- Email Input -->
+    <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:elevation="4dp">
+        android:hint="Email"
+        app:boxBackgroundMode="outline"
+        android:layout_marginBottom="16dp">
 
-        <LinearLayout
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etEmail"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="24dp">
+            android:inputType="textEmailAddress"
+            android:maxLines="1"/>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Login"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="24dp"/>
+    </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Email -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Email"
-                android:textSize="14sp"
-                android:textColor="#666666"
-                android:layout_marginBottom="8dp"/>
+    <!-- Password Input -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Password"
+        app:boxBackgroundMode="outline"
+        app:passwordToggleEnabled="true"
+        android:layout_marginBottom="24dp">
 
-            <EditText
-                android:id="@+id/etEmail"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:inputType="textEmailAddress"
-                android:hint="manager@farm.com"
-                android:padding="16dp"
-                android:background="@android:drawable/edit_text"
-                android:layout_marginBottom="16dp"/>
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textPassword"
+            android:maxLines="1"/>
 
-            <!-- Password -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Password"
-                android:textSize="14sp"
-                android:textColor="#666666"
-                android:layout_marginBottom="8dp"/>
+    </com.google.android.material.textfield.TextInputLayout>
 
-            <EditText
-                android:id="@+id/etPassword"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:inputType="textPassword"
-                android:hint="••••••••"
-                android:padding="16dp"
-                android:background="@android:drawable/edit_text"
-                android:layout_marginBottom="16dp"/>
+    <!-- Login Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnLogin"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Login"
+        android:textSize="16sp"
+        android:textAllCaps="false"
+        app:cornerRadius="8dp"
+        android:layout_marginBottom="24dp"/>
 
-            <!-- Error Message -->
-            <TextView
-                android:id="@+id/tvError"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Error message"
-                android:textColor="#F44336"
-                android:textSize="14sp"
-                android:visibility="gone"
-                android:layout_marginBottom="16dp"/>
+    <!-- Register Link -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
 
-            <!-- Login Button -->
-            <Button
-                android:id="@+id/btnLogin"
-                android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:text="LOGIN"
-                android:textSize="18sp"
-                android:backgroundTint="#1976D2"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Don't have an account? "
+            android:textSize="14sp"
+            android:textColor="#666666"/>
 
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
+        <TextView
+            android:id="@+id/tvRegister"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Register"
+            android:textSize="14sp"
+            android:textColor="#6200EE"
+            android:textStyle="bold"
+            android:clickable="true"
+            android:focusable="true"/>
+
+    </LinearLayout>
 
 </LinearLayout>

@@ -3,115 +3,138 @@ package com.example.clockoutandroid
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import com.example.clockoutandroid.databinding.ActivityLoginBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 class LoginActivity : AppCompatActivity() {
     
-    private lateinit var etEmail: EditText
-    private lateinit var etPassword: EditText
-    private lateinit var btnLogin: Button
-    private lateinit var tvError: TextView
+    private lateinit var binding: ActivityLoginBinding
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         // Check if already logged in
-        if (isLoggedIn()) {
-            navigateToMain()
-            return
-        }
-        
-        setContentView(R.layout.activity_login)
-        
-        etEmail = findViewById(R.id.etEmail)
-        etPassword = findViewById(R.id.etPassword)
-        btnLogin = findViewById(R.id.btnLogin)
-        tvError = findViewById(R.id.tvError)
-        
-        btnLogin.setOnClickListener {
-            val email = etEmail.text.toString().trim()
-            val password = etPassword.text.toString()
-            
-            if (email.isEmpty() || password.isEmpty()) {
-                tvError.text = "Please enter email and password"
-                tvError.visibility = TextView.VISIBLE
-                return@setOnClickListener
-            }
-            
-            login(email, password)
-        }
-    }
-    
-    private fun login(email: String, password: String) {
-        btnLogin.isEnabled = false
-        btnLogin.text = "Logging in..."
-        tvError.visibility = TextView.GONE
-        
-        lifecycleScope.launch {
-            try {
-                // Call backend login API
-                val response = com.example.clockoutandroid.data.remote.RetrofitInstance.api.login(email, password)
-                
-                if (response.isSuccessful && response.body() != null) {
-                    val loginResponse = response.body()!!
-                    
-                    // Save token and user data
-                    saveAuthData(
-                        token = loginResponse.access_token,
-                        userId = loginResponse.user.id,
-                        userMode = loginResponse.user.mode,
-                        assignedSites = loginResponse.user.assigned_sites
-                    )
-                    
-                    Toast.makeText(this@LoginActivity, "Welcome ${loginResponse.user.full_name}!", Toast.LENGTH_SHORT).show()
-                    navigateToMain()
-                } else {
-                    tvError.text = "Invalid email or password"
-                    tvError.visibility = TextView.VISIBLE
-                    btnLogin.isEnabled = true
-                    btnLogin.text = "LOGIN"
-                }
-            } catch (e: Exception) {
-                tvError.text = "Connection error: ${e.message}"
-                tvError.visibility = TextView.VISIBLE
-                btnLogin.isEnabled = true
-                btnLogin.text = "LOGIN"
-            }
-        }
-    }
-    
-    private fun saveAuthData(token: String, userId: Int, userMode: String, assignedSites: List<Int>) {
-        val prefs = getSharedPreferences("auth", Context.MODE_PRIVATE)
-        prefs.edit().apply {
-            putString("token", token)
-            putInt("user_id", userId)
-            putString("user_mode", userMode)
-            putString("assigned_sites", assignedSites.joinToString(","))
-            putLong("login_time", System.currentTimeMillis())
-            apply()
-        }
-    }
-    
-    private fun isLoggedIn(): Boolean {
         val prefs = getSharedPreferences("auth", Context.MODE_PRIVATE)
         val token = prefs.getString("token", null)
         val loginTime = prefs.getLong("login_time", 0)
         
-        // Token expires after 7 days (same as backend)
+        // Check if token is still valid (7 days)
         val tokenValid = token != null && (System.currentTimeMillis() - loginTime) < 7 * 24 * 60 * 60 * 1000
         
-        return tokenValid
+        if (tokenValid) {
+            navigateToMain()
+            return
+        }
+        
+        binding = ActivityLoginBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        
+        setupClickListeners()
+    }
+    
+    private fun setupClickListeners() {
+        // Login button
+        binding.btnLogin.setOnClickListener {
+            val email = binding.etEmail.text.toString().trim()
+            val password = binding.etPassword.text.toString()
+            
+            if (email.isEmpty()) {
+                binding.etEmail.error = "Email is required"
+                return@setOnClickListener
+            }
+            
+            if (password.isEmpty()) {
+                binding.etPassword.error = "Password is required"
+                return@setOnClickListener
+            }
+            
+            performLogin(email, password)
+        }
+        
+        // Register link
+        binding.tvRegister.setOnClickListener {
+            val intent = Intent(this, RegisterActivity::class.java)
+            startActivity(intent)
+        }
+    }
+    
+    private fun performLogin(email: String, password: String) {
+        binding.btnLogin.isEnabled = false
+        binding.btnLogin.text = "Logging in..."
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val url = URL("${ApiConfig.BASE_URL}/auth/login")
+                val connection = url.openConnection() as HttpURLConnection
+                
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                connection.doOutput = true
+                
+                // OAuth2 format requires username field (not email)
+                val postData = "username=$email&password=$password"
+                
+                connection.outputStream.use { outputStream ->
+                    outputStream.write(postData.toByteArray())
+                }
+                
+                val responseCode = connection.responseCode
+                
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val response = connection.inputStream.bufferedReader().readText()
+                    val jsonResponse = JSONObject(response)
+                    
+                    // Extract data
+                    val token = jsonResponse.getString("access_token")
+                    val userObj = jsonResponse.getJSONObject("user")
+                    
+                    // Save to SharedPreferences
+                    val prefs = getSharedPreferences("auth", Context.MODE_PRIVATE)
+                    prefs.edit().apply {
+                        putString("token", token)
+                        putInt("user_id", userObj.getInt("id"))
+                        putString("user_name", userObj.optString("full_name", ""))
+                        putString("email", userObj.getString("email"))
+                        putString("user_role", userObj.getString("role"))
+                        putString("user_mode", userObj.getString("mode"))
+                        putInt("organization_id", userObj.getInt("organization_id"))
+                        putLong("login_time", System.currentTimeMillis())
+                        apply()
+                    }
+                    
+                    withContext(Dispatchers.Main) {
+                        navigateToMain()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@LoginActivity, "Invalid email or password", Toast.LENGTH_SHORT).show()
+                        binding.btnLogin.isEnabled = true
+                        binding.btnLogin.text = "Login"
+                    }
+                }
+                
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@LoginActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                    binding.btnLogin.isEnabled = true
+                    binding.btnLogin.text = "Login"
+                }
+            }
+        }
     }
     
     private fun navigateToMain() {
-        startActivity(Intent(this, MainActivity::class.java))
+        val intent = Intent(this, MainActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
         finish()
     }
 }
