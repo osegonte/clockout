@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
+from passlib.context import CryptContext
 
 from app.database import get_db
 from app.models.user import Organization, User
@@ -13,10 +14,19 @@ from app.routes.auth import get_current_user
 
 router = APIRouter()
 
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 # ==========================================
 # PYDANTIC SCHEMAS
 # ==========================================
+
+class OrganizationRegister(BaseModel):
+    name: str
+    admin_email: str
+    admin_password: str
+
 
 class OrganizationResponse(BaseModel):
     id: int
@@ -82,6 +92,75 @@ def get_plan_limits(plan: str) -> dict:
 # ==========================================
 # ENDPOINTS
 # ==========================================
+
+@router.post("/register")
+async def register_organization(
+    org_data: OrganizationRegister,
+    db: Session = Depends(get_db)
+):
+    """
+    Register a new organization with an admin user
+    
+    This is a public endpoint - no authentication required
+    """
+    # Check if email already exists
+    existing_user = db.query(User).filter(User.email == org_data.admin_email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+    
+    # Check if organization name already exists
+    existing_org = db.query(Organization).filter(Organization.name == org_data.name).first()
+    if existing_org:
+        raise HTTPException(
+            status_code=400,
+            detail="Organization name already taken"
+        )
+    
+    # Create organization with free plan limits
+    free_limits = get_plan_limits("free")
+    new_org = Organization(
+        name=org_data.name,
+        owner_email=org_data.admin_email,
+        subscription_plan="free",
+        subscription_status="trial",
+        subscription_start_date=datetime.now(timezone.utc),
+        subscription_end_date=datetime.now(timezone.utc) + timedelta(days=30),  # 30 day trial
+        max_sites=free_limits["max_sites"],
+        max_workers=free_limits["max_workers"],
+        max_managers=free_limits["max_managers"],
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc)
+    )
+    
+    db.add(new_org)
+    db.flush()  # Get the organization ID
+    
+    # Create admin user
+    hashed_password = pwd_context.hash(org_data.admin_password)
+    admin_user = User(
+        email=org_data.admin_email,
+        hashed_password=hashed_password,
+        full_name=f"{org_data.name} Admin",
+        organization_id=new_org.id,
+        role="admin",
+        user_mode="admin",
+        is_active=True,
+        created_at=datetime.now(timezone.utc)
+    )
+    
+    db.add(admin_user)
+    db.commit()
+    db.refresh(new_org)
+    
+    return {
+        "message": "Organization registered successfully",
+        "organization_id": new_org.id,
+        "admin_email": org_data.admin_email
+    }
+
 
 @router.get("/{org_id}", response_model=OrganizationResponse)
 async def get_organization(

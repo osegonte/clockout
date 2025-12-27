@@ -27,6 +27,7 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -100,15 +101,15 @@ class AttendanceFragment : Fragment() {
         val token = sharedPref.getString("token", "") ?: ""
         val userMode = sharedPref.getString("user_mode", "manager") ?: "manager"
         
-        Log.d("AttendanceFragment", "Loading data for mode: " + userMode)
+        Log.d("AttendanceFragment", "Loading data for mode: $userMode")
         
         lifecycleScope.launch {
             try {
-                val sitesResponse = RetrofitInstance.api.getSites("Bearer " + token)
+                val sitesResponse = RetrofitInstance.api.getSites("Bearer $token")
                 
                 if (sitesResponse.isSuccessful) {
                     val sites = sitesResponse.body() ?: emptyList()
-                    Log.d("AttendanceFragment", "Fetched " + sites.size + " sites")
+                    Log.d("AttendanceFragment", "Fetched ${sites.size} sites")
                     
                     if (sites.isNotEmpty()) {
                         currentSite = sites[0]
@@ -120,7 +121,7 @@ class AttendanceFragment : Fragment() {
                         tvGpsStatus.text = "No site assigned"
                     }
                 } else {
-                    Log.e("AttendanceFragment", "Failed to fetch sites: " + sitesResponse.code())
+                    Log.e("AttendanceFragment", "Failed to fetch sites: ${sitesResponse.code()}")
                     tvSiteName.text = "Error loading site"
                 }
                 
@@ -139,11 +140,11 @@ class AttendanceFragment : Fragment() {
         
         lifecycleScope.launch {
             try {
-                val workersResponse = RetrofitInstance.api.getWorkers("Bearer " + token)
+                val workersResponse = RetrofitInstance.api.getWorkers("Bearer $token")
                 
                 if (workersResponse.isSuccessful) {
                     val workers = workersResponse.body() ?: emptyList()
-                    Log.d("AttendanceFragment", "Fetched " + workers.size + " workers")
+                    Log.d("AttendanceFragment", "Fetched ${workers.size} workers")
                     
                     val workerNames = workers.map { it.name }
                     val adapter = ArrayAdapter(
@@ -154,7 +155,7 @@ class AttendanceFragment : Fragment() {
                     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                     spinnerWorker.adapter = adapter
                 } else {
-                    Log.e("AttendanceFragment", "Failed to fetch workers: " + workersResponse.code())
+                    Log.e("AttendanceFragment", "Failed to fetch workers: ${workersResponse.code()}")
                     Toast.makeText(requireContext(), "Error loading workers", Toast.LENGTH_SHORT).show()
                 }
                 
@@ -178,11 +179,13 @@ class AttendanceFragment : Fragment() {
             return
         }
         
-        val locationRequest = LocationRequest.create().apply {
-            interval = 10000
-            fastestInterval = 5000
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        }
+        // FIXED: Use new LocationRequest API for newer Play Services versions
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            10000L // interval in milliseconds
+        ).apply {
+            setMinUpdateIntervalMillis(5000L)
+        }.build()
         
         fusedLocationClient.requestLocationUpdates(
             locationRequest,
@@ -207,7 +210,7 @@ class AttendanceFragment : Fragment() {
             btnCheckOut.isEnabled = true
         } else {
             val distanceInt = distance.toInt()
-            tvGpsStatus.text = "Outside geofence (" + distanceInt + "m away)"
+            tvGpsStatus.text = "Outside geofence (${distanceInt}m away)"
             btnCheckIn.isEnabled = false
             btnCheckOut.isEnabled = false
         }
@@ -250,7 +253,7 @@ class AttendanceFragment : Fragment() {
         
         sharedPref.edit().putString("pending_events", eventsArray.toString()).apply()
         
-        val toastMessage = selectedWorkerName + " checked " + eventType
+        val toastMessage = "$selectedWorkerName checked $eventType"
         Toast.makeText(requireContext(), toastMessage, Toast.LENGTH_SHORT).show()
         
         updateSyncStatus()
@@ -262,7 +265,7 @@ class AttendanceFragment : Fragment() {
         val eventsArray = JSONArray(pendingEvents)
         
         val eventCount = eventsArray.length()
-        tvSyncStatus.text = eventCount.toString() + " events pending sync"
+        tvSyncStatus.text = "$eventCount events pending sync"
     }
 
     override fun onResume() {
