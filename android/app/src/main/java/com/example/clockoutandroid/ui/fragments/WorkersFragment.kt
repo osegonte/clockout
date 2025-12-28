@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.clockoutandroid.R
 import com.example.clockoutandroid.data.models.Worker
 import com.example.clockoutandroid.data.remote.RetrofitInstance
+import com.example.clockoutandroid.data.remote.WorkerCreateRequest
 import com.example.clockoutandroid.ui.adapters.WorkerAdapter
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.launch
@@ -95,13 +96,8 @@ class WorkersFragment : Fragment() {
         val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
         val token = sharedPref.getString("token", "") ?: ""
         
-        // DEBUG: Log token
-        Log.d("WorkersFragment", "Token: " + token)
-        
         if (token.isEmpty()) {
-            Toast.makeText(requireContext(), "No auth token found. Please login again.", Toast.LENGTH_LONG).show()
-            tvEmptyState.visibility = View.VISIBLE
-            tvEmptyState.text = "Not authenticated. Please logout and login again."
+            Toast.makeText(requireContext(), "Not authenticated. Please login again.", Toast.LENGTH_LONG).show()
             return
         }
         
@@ -110,17 +106,10 @@ class WorkersFragment : Fragment() {
         
         lifecycleScope.launch {
             try {
-                Log.d("WorkersFragment", "Calling API...")
-                val response = RetrofitInstance.api.getWorkers("Bearer " + token)
-                
-                Log.d("WorkersFragment", "Response code: " + response.code())
-                Log.d("WorkersFragment", "Response successful: " + response.isSuccessful)
+                val response = RetrofitInstance.api.getWorkers("Bearer $token")
                 
                 if (response.isSuccessful) {
                     allWorkers = response.body() ?: emptyList()
-                    
-                    Log.d("WorkersFragment", "Workers loaded: " + allWorkers.size)
-                    
                     workerAdapter.submitList(allWorkers)
                     
                     if (allWorkers.isEmpty()) {
@@ -130,31 +119,14 @@ class WorkersFragment : Fragment() {
                         tvEmptyState.visibility = View.GONE
                     }
                 } else {
-                    val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                    Log.e("WorkersFragment", "API Error: " + response.code() + " - " + errorBody)
-                    
-                    tvEmptyState.visibility = View.VISIBLE
-                    tvEmptyState.text = "Error: " + response.code() + "\n" + errorBody
-                    
-                    Toast.makeText(
-                        requireContext(), 
-                        "Failed to load workers: " + response.code(),
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(requireContext(), "Failed to load workers", Toast.LENGTH_SHORT).show()
                 }
                 
                 progressBar.visibility = View.GONE
                 
             } catch (e: Exception) {
                 progressBar.visibility = View.GONE
-                
-                Log.e("WorkersFragment", "Exception loading workers", e)
-                
-                val errorMessage = "Network error: " + e.message
-                tvEmptyState.visibility = View.VISIBLE
-                tvEmptyState.text = errorMessage
-                
-                Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -173,7 +145,7 @@ class WorkersFragment : Fragment() {
         
         if (filteredList.isEmpty() && query.isNotEmpty()) {
             tvEmptyState.visibility = View.VISIBLE
-            tvEmptyState.text = "No workers found for: " + query
+            tvEmptyState.text = "No workers found for: $query"
         } else {
             tvEmptyState.visibility = View.GONE
         }
@@ -199,11 +171,43 @@ class WorkersFragment : Fragment() {
                     return@setPositiveButton
                 }
                 
-                Toast.makeText(requireContext(), "Add worker API coming soon", Toast.LENGTH_SHORT).show()
-                loadWorkers()
+                createWorker(name, phone.ifEmpty { null }, employeeId.ifEmpty { null })
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun createWorker(name: String, phone: String?, employeeId: String?) {
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("token", "") ?: ""
+        
+        progressBar.visibility = View.VISIBLE
+        
+        lifecycleScope.launch {
+            try {
+                val workerRequest = WorkerCreateRequest(
+                    name = name,
+                    phone = phone,
+                    employee_id = employeeId,
+                    site_id = null
+                )
+                
+                val response = RetrofitInstance.api.createWorker("Bearer $token", workerRequest)
+                
+                if (response.isSuccessful) {
+                    Toast.makeText(requireContext(), "Worker created successfully!", Toast.LENGTH_SHORT).show()
+                    loadWorkers() // Refresh list
+                } else {
+                    Toast.makeText(requireContext(), "Failed to create worker", Toast.LENGTH_SHORT).show()
+                }
+                
+                progressBar.visibility = View.GONE
+                
+            } catch (e: Exception) {
+                progressBar.visibility = View.GONE
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun showEditWorkerDialog(worker: Worker) {
@@ -230,22 +234,79 @@ class WorkersFragment : Fragment() {
                     return@setPositiveButton
                 }
                 
-                Toast.makeText(requireContext(), "Update worker API coming soon", Toast.LENGTH_SHORT).show()
-                loadWorkers()
+                updateWorker(worker.id, name, phone.ifEmpty { null }, employeeId.ifEmpty { null })
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
+    private fun updateWorker(workerId: Int, name: String, phone: String?, employeeId: String?) {
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("token", "") ?: ""
+        
+        progressBar.visibility = View.VISIBLE
+        
+        lifecycleScope.launch {
+            try {
+                val workerRequest = WorkerCreateRequest(
+                    name = name,
+                    phone = phone,
+                    employee_id = employeeId,
+                    site_id = null
+                )
+                
+                val response = RetrofitInstance.api.updateWorker("Bearer $token", workerId, workerRequest)
+                
+                if (response.isSuccessful) {
+                    Toast.makeText(requireContext(), "Worker updated successfully!", Toast.LENGTH_SHORT).show()
+                    loadWorkers() // Refresh list
+                } else {
+                    Toast.makeText(requireContext(), "Failed to update worker", Toast.LENGTH_SHORT).show()
+                }
+                
+                progressBar.visibility = View.GONE
+                
+            } catch (e: Exception) {
+                progressBar.visibility = View.GONE
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun showDeleteConfirmation(worker: Worker) {
         AlertDialog.Builder(requireContext())
             .setTitle("Delete Worker")
-            .setMessage("Are you sure you want to delete " + worker.name + "?")
+            .setMessage("Are you sure you want to delete ${worker.name}?")
             .setPositiveButton("Delete") { _, _ ->
-                Toast.makeText(requireContext(), "Delete worker API coming soon", Toast.LENGTH_SHORT).show()
-                loadWorkers()
+                deleteWorker(worker.id)
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun deleteWorker(workerId: Int) {
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("token", "") ?: ""
+        
+        progressBar.visibility = View.VISIBLE
+        
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitInstance.api.deleteWorker("Bearer $token", workerId)
+                
+                if (response.isSuccessful) {
+                    Toast.makeText(requireContext(), "Worker deleted successfully!", Toast.LENGTH_SHORT).show()
+                    loadWorkers() // Refresh list
+                } else {
+                    Toast.makeText(requireContext(), "Failed to delete worker", Toast.LENGTH_SHORT).show()
+                }
+                
+                progressBar.visibility = View.GONE
+                
+            } catch (e: Exception) {
+                progressBar.visibility = View.GONE
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 }

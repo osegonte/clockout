@@ -1,8 +1,8 @@
 package com.example.clockoutandroid
 
 object ApiConfig {
-    // Production backend URL
-    const val BASE_URL = "https://clockout-backend.onrender.com/api/v1"
+    // Production backend URL - CORRECTED to match actual Render deployment
+    const val BASE_URL = "https://clockout-3v34.onrender.com/api/v1"
     
     // Endpoints (for reference)
     object Endpoints {

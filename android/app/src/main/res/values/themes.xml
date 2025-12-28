@@ -1,9 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.ClockOutAndroid" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    
+    <!-- Base application theme -->
+    <style name="Base.Theme.ClockOut" parent="Theme.Material3.Light.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorSecondaryVariant">@color/accent_dark</item>
+        <item name="colorOnSecondary">@color/white</item>
+        
+        <!-- Error color -->
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/white</item>
+        
+        <!-- Background color -->
+        <item name="android:colorBackground">@color/background</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">@color/primary_dark</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        
+        <!-- Text colors -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+        
+        <!-- Default text appearance -->
+        <item name="textAppearanceBody1">@style/TextAppearance.ClockOut.Body</item>
+        <item name="textAppearanceCaption">@style/TextAppearance.ClockOut.Caption</item>
+        
+        <!-- Button styles -->
+        <item name="materialButtonStyle">@style/Button.ClockOut.Primary</item>
+        <item name="borderlessButtonStyle">@style/Button.ClockOut.Text</item>
+        
+        <!-- Shape styles -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.ClockOut.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.ClockOut.MediumComponent</item>
     </style>
-
-    <style name="Theme.ClockOutAndroid" parent="Base.Theme.ClockOutAndroid" />
+    
+    <!-- Application theme -->
+    <style name="Theme.ClockOut" parent="Base.Theme.ClockOut" />
+    
+    <!-- Shape appearances -->
+    <style name="ShapeAppearance.ClockOut.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/input_corner</item>
+    </style>
+    
+    <style name="ShapeAppearance.ClockOut.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/card_corner</item>
+    </style>
+    
 </resources>

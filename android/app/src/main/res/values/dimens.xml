@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Spacing System - 8dp Grid (Apple HIG-inspired) -->
+    <dimen name="spacing_xs">4dp</dimen>           <!-- Extra small spacing -->
+    <dimen name="spacing_sm">8dp</dimen>           <!-- Small spacing -->
+    <dimen name="spacing_md">16dp</dimen>          <!-- Medium spacing (standard) -->
+    <dimen name="spacing_lg">24dp</dimen>          <!-- Large spacing -->
+    <dimen name="spacing_xl">32dp</dimen>          <!-- Extra large spacing -->
+    <dimen name="spacing_xxl">48dp</dimen>         <!-- Double extra large -->
+    <dimen name="spacing_xxxl">64dp</dimen>        <!-- Triple extra large -->
+    
+    <!-- Text Sizes - Clear Hierarchy -->
+    <dimen name="text_display">48sp</dimen>        <!-- Hero text -->
+    <dimen name="text_headline">32sp</dimen>       <!-- Page titles -->
+    <dimen name="text_title">24sp</dimen>          <!-- Section titles -->
+    <dimen name="text_subtitle">18sp</dimen>       <!-- Subtitles -->
+    <dimen name="text_body">16sp</dimen>           <!-- Body text -->
+    <dimen name="text_caption">14sp</dimen>        <!-- Captions, labels -->
+    <dimen name="text_small">12sp</dimen>          <!-- Small text -->
+    
+    <!-- Button Sizes -->
+    <dimen name="button_height">56dp</dimen>       <!-- Standard button height -->
+    <dimen name="button_height_small">48dp</dimen> <!-- Small button height -->
+    <dimen name="button_corner">12dp</dimen>       <!-- Button corner radius -->
+    <dimen name="button_padding_horizontal">24dp</dimen>
+    
+    <!-- Input Fields -->
+    <dimen name="input_height">56dp</dimen>        <!-- Standard input height -->
+    <dimen name="input_corner">12dp</dimen>        <!-- Input corner radius -->
+    <dimen name="input_padding">16dp</dimen>       <!-- Input padding -->
+    
+    <!-- Card & Container -->
+    <dimen name="card_corner">16dp</dimen>         <!-- Card corner radius -->
+    <dimen name="card_elevation">4dp</dimen>       <!-- Card shadow -->
+    <dimen name="container_padding">24dp</dimen>   <!-- Container padding -->
+    
+    <!-- Icon Sizes -->
+    <dimen name="icon_xs">16dp</dimen>
+    <dimen name="icon_sm">24dp</dimen>
+    <dimen name="icon_md">32dp</dimen>
+    <dimen name="icon_lg">48dp</dimen>
+    <dimen name="icon_xl">64dp</dimen>
+    
+    <!-- Touch Targets (Minimum 48dp for accessibility) -->
+    <dimen name="touch_target_min">48dp</dimen>
+    
+    <!-- Screen Margins -->
+    <dimen name="screen_margin">24dp</dimen>       <!-- Standard screen edge margin -->
+    <dimen name="screen_margin_horizontal">24dp</dimen>
+    <dimen name="screen_margin_vertical">16dp</dimen>
+    
+    <!-- Divider -->
+    <dimen name="divider_height">1dp</dimen>
+    
+    <!-- App Bar -->
+    <dimen name="app_bar_height">56dp</dimen>
+</resources>

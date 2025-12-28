@@ -4,166 +4,267 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@android:color/white">
+    android:background="@color/background">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="32dp"
-        android:gravity="center">
+        android:padding="@dimen/spacing_xl">
 
-        <!-- Logo/Title Section -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ClockOut"
-            android:textSize="32sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:layout_marginTop="40dp"
-            android:layout_marginBottom="8dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Create your account"
-            android:textSize="16sp"
-            android:textColor="#666666"
-            android:layout_marginBottom="40dp"/>
-
-        <!-- Organization Name Input -->
-        <com.google.android.material.textfield.TextInputLayout
+        <!-- Header Section -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Farm/Organization Name"
-            app:boxBackgroundMode="outline"
-            android:layout_marginBottom="16dp">
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginTop="@dimen/spacing_lg"
+            android:layout_marginBottom="@dimen/spacing_xl">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etOrganizationName"
+            <!-- App Name -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ClockOut"
+                style="@style/TextAppearance.ClockOut.Headline"
+                android:textSize="36sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                android:letterSpacing="-0.02"
+                android:layout_marginBottom="@dimen/spacing_xs"/>
+
+            <!-- Create Account Title -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Create your account"
+                style="@style/TextAppearance.ClockOut.Subtitle"
+                android:textColor="@color/text_secondary"/>
+
+        </LinearLayout>
+
+        <!-- Registration Form Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/Card.ClockOut"
+            app:cardElevation="6dp"
+            app:cardCornerRadius="@dimen/card_corner"
+            android:layout_marginBottom="@dimen/spacing_lg">
+
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textCapWords"
-                android:maxLines="1"/>
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_lg">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <!-- Section: Organization Details -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Organization Details"
+                    style="@style/TextAppearance.ClockOut.Body"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary"
+                    android:layout_marginBottom="@dimen/spacing_md"/>
 
-        <!-- Admin Name Input -->
-        <com.google.android.material.textfield.TextInputLayout
+                <!-- Organization Name -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Farm/Organization Name"
+                    style="@style/TextInputLayout.ClockOut"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    app:startIconDrawable="@android:drawable/ic_menu_my_calendar"
+                    app:startIconTint="@color/text_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etOrganizationName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/TextInputEditText.ClockOut"
+                        android:inputType="textCapWords"
+                        android:maxLines="1"/>
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/divider_height"
+                    android:background="@color/divider"
+                    android:layout_marginVertical="@dimen/spacing_md"/>
+
+                <!-- Section: Admin Account -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Admin Account"
+                    style="@style/TextAppearance.ClockOut.Body"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary"
+                    android:layout_marginBottom="@dimen/spacing_md"/>
+
+                <!-- Admin Name -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Your Full Name"
+                    style="@style/TextInputLayout.ClockOut"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    app:startIconDrawable="@android:drawable/ic_menu_myplaces"
+                    app:startIconTint="@color/text_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etAdminName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/TextInputEditText.ClockOut"
+                        android:inputType="textPersonName"
+                        android:maxLines="1"/>
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Email -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Email Address"
+                    style="@style/TextInputLayout.ClockOut"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    app:startIconDrawable="@android:drawable/ic_dialog_email"
+                    app:startIconTint="@color/text_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etEmail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/TextInputEditText.ClockOut"
+                        android:inputType="textEmailAddress"
+                        android:maxLines="1"/>
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Password -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Password (min 6 characters)"
+                    style="@style/TextInputLayout.ClockOut"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    app:passwordToggleEnabled="true"
+                    app:passwordToggleTint="@color/text_hint"
+                    app:startIconDrawable="@android:drawable/ic_lock_idle_lock"
+                    app:startIconTint="@color/text_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPassword"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/TextInputEditText.ClockOut"
+                        android:inputType="textPassword"
+                        android:maxLines="1"/>
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Confirm Password -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Confirm Password"
+                    style="@style/TextInputLayout.ClockOut"
+                    android:layout_marginBottom="@dimen/spacing_lg"
+                    app:passwordToggleEnabled="true"
+                    app:passwordToggleTint="@color/text_hint"
+                    app:startIconDrawable="@android:drawable/ic_lock_idle_lock"
+                    app:startIconTint="@color/text_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etConfirmPassword"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/TextInputEditText.ClockOut"
+                        android:inputType="textPassword"
+                        android:maxLines="1"/>
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Register Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnRegister"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/button_height"
+                    android:text="Create Account"
+                    style="@style/Button.ClockOut.Primary"
+                    android:elevation="2dp"/>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Trial Info Card -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Your Full Name"
-            app:boxBackgroundMode="outline"
-            android:layout_marginBottom="16dp">
+            app:cardCornerRadius="@dimen/input_corner"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@color/primary_light"
+            android:layout_marginBottom="@dimen/spacing_lg">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etAdminName"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textPersonName"
-                android:maxLines="1"/>
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_md">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Free Trial Includes:"
+                    style="@style/TextAppearance.ClockOut.Caption"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary_dark"
+                    android:layout_marginBottom="@dimen/spacing_sm"/>
 
-        <!-- Email Input -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Email Address"
-            app:boxBackgroundMode="outline"
-            android:layout_marginBottom="16dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="• 1 farm site location\n• Up to 10 workers\n• 2 manager accounts\n• GPS-verified attendance\n• No credit card required"
+                    style="@style/TextAppearance.ClockOut.Caption"
+                    android:textColor="@color/primary_dark"
+                    android:lineSpacingExtra="2dp"/>
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etEmail"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textEmailAddress"
-                android:maxLines="1"/>
+            </LinearLayout>
 
-        </com.google.android.material.textfield.TextInputLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-        <!-- Password Input -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Password (min 6 characters)"
-            app:boxBackgroundMode="outline"
-            app:passwordToggleEnabled="true"
-            android:layout_marginBottom="16dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etPassword"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPassword"
-                android:maxLines="1"/>
-
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Confirm Password Input -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Confirm Password"
-            app:boxBackgroundMode="outline"
-            app:passwordToggleEnabled="true"
-            android:layout_marginBottom="24dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etConfirmPassword"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPassword"
-                android:maxLines="1"/>
-
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Register Button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnRegister"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:text="Create Account"
-            android:textSize="16sp"
-            android:textAllCaps="false"
-            app:cornerRadius="8dp"
-            android:layout_marginBottom="16dp"/>
-
-        <!-- Subscription Info -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="• Free trial includes:\n  - 1 site\n  - Up to 10 workers\n  - 2 managers\n• No credit card required"
-            android:textSize="13sp"
-            android:textColor="#666666"
-            android:lineSpacingExtra="4dp"
-            android:layout_marginBottom="24dp"/>
-
-        <!-- Already have account? Login -->
+        <!-- Login Link -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center">
+            android:gravity="center"
+            android:layout_gravity="center"
+            android:layout_marginBottom="@dimen/spacing_lg">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Already have an account? "
-                android:textSize="14sp"
-                android:textColor="#666666"/>
+                style="@style/TextAppearance.ClockOut.Body"
+                android:textColor="@color/text_secondary"/>
 
             <TextView
                 android:id="@+id/tvLogin"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Login"
-                android:textSize="14sp"
-                android:textColor="#6200EE"
+                android:text="Sign In"
+                style="@style/TextAppearance.ClockOut.Link"
                 android:textStyle="bold"
                 android:clickable="true"
-                android:focusable="true"/>
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="@dimen/spacing_sm"/>
 
         </LinearLayout>
 

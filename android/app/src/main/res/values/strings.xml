@@ -1,3 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ClockOut Android</string>
+    <!-- App Info -->
+    <string name="app_name">ClockOut</string>
+    <string name="app_tagline">Farm Attendance Tracking</string>
+    <string name="app_description">GPS-verified attendance tracking</string>
+    
+    <!-- Login Screen -->
+    <string name="login_title">Welcome back</string>
+    <string name="login_subtitle">Sign in to continue</string>
+    <string name="login_button">Sign In</string>
+    <string name="login_email_hint">Email</string>
+    <string name="login_password_hint">Password</string>
+    <string name="login_no_account">Don\'t have an account?</string>
+    <string name="login_signup_link">Sign Up</string>
+    
+    <!-- Registration Screen -->
+    <string name="register_title">Create your account</string>
+    <string name="register_button">Create Account</string>
+    <string name="register_organization_section">Organization Details</string>
+    <string name="register_admin_section">Admin Account</string>
+    <string name="register_org_name_hint">Farm/Organization Name</string>
+    <string name="register_admin_name_hint">Your Full Name</string>
+    <string name="register_email_hint">Email Address</string>
+    <string name="register_password_hint">Password (min 6 characters)</string>
+    <string name="register_confirm_password_hint">Confirm Password</string>
+    <string name="register_trial_title">Free Trial Includes:</string>
+    <string name="register_trial_features">• 1 farm site location\n• Up to 10 workers\n• 2 manager accounts\n• GPS-verified attendance\n• No credit card required</string>
+    <string name="register_have_account">Already have an account?</string>
+    <string name="register_signin_link">Sign In</string>
+    
+    <!-- Validation Messages -->
+    <string name="error_email_required">Email is required</string>
+    <string name="error_email_invalid">Please enter a valid email</string>
+    <string name="error_password_required">Password is required</string>
+    <string name="error_password_short">Password must be at least 6 characters</string>
+    <string name="error_password_mismatch">Passwords do not match</string>
+    <string name="error_name_required">Name is required</string>
+    <string name="error_org_name_required">Organization name is required</string>
+    <string name="error_org_name_short">Organization name must be at least 3 characters</string>
+    
+    <!-- Success Messages -->
+    <string name="success_account_created">Account created successfully!</string>
+    <string name="success_login">Welcome back!</string>
+    
+    <!-- Error Messages -->
+    <string name="error_network">Network error. Please try again.</string>
+    <string name="error_login_failed">Invalid email or password</string>
+    <string name="error_registration_failed">Registration failed. Please try again.</string>
 </resources>

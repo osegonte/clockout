@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.clockoutandroid.R
 import com.example.clockoutandroid.data.models.Site
 import com.example.clockoutandroid.data.remote.RetrofitInstance
+import com.example.clockoutandroid.data.remote.SiteCreateRequest
 import com.example.clockoutandroid.ui.adapters.SiteAdapter
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.launch
@@ -95,12 +96,8 @@ class SitesFragment : Fragment() {
         val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
         val token = sharedPref.getString("token", "") ?: ""
         
-        Log.d("SitesFragment", "Token: " + token)
-        
         if (token.isEmpty()) {
-            Toast.makeText(requireContext(), "No auth token found. Please login again.", Toast.LENGTH_LONG).show()
-            tvEmptyState.visibility = View.VISIBLE
-            tvEmptyState.text = "Not authenticated. Please logout and login again."
+            Toast.makeText(requireContext(), "Not authenticated. Please login again.", Toast.LENGTH_LONG).show()
             return
         }
         
@@ -109,17 +106,10 @@ class SitesFragment : Fragment() {
         
         lifecycleScope.launch {
             try {
-                Log.d("SitesFragment", "Calling API...")
-                val response = RetrofitInstance.api.getSites("Bearer " + token)
-                
-                Log.d("SitesFragment", "Response code: " + response.code())
-                Log.d("SitesFragment", "Response successful: " + response.isSuccessful)
+                val response = RetrofitInstance.api.getSites("Bearer $token")
                 
                 if (response.isSuccessful) {
                     allSites = response.body() ?: emptyList()
-                    
-                    Log.d("SitesFragment", "Sites loaded: " + allSites.size)
-                    
                     siteAdapter.submitList(allSites)
                     
                     if (allSites.isEmpty()) {
@@ -129,31 +119,14 @@ class SitesFragment : Fragment() {
                         tvEmptyState.visibility = View.GONE
                     }
                 } else {
-                    val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                    Log.e("SitesFragment", "API Error: " + response.code() + " - " + errorBody)
-                    
-                    tvEmptyState.visibility = View.VISIBLE
-                    tvEmptyState.text = "Error: " + response.code() + "\n" + errorBody
-                    
-                    Toast.makeText(
-                        requireContext(), 
-                        "Failed to load sites: " + response.code(),
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(requireContext(), "Failed to load sites", Toast.LENGTH_SHORT).show()
                 }
                 
                 progressBar.visibility = View.GONE
                 
             } catch (e: Exception) {
                 progressBar.visibility = View.GONE
-                
-                Log.e("SitesFragment", "Exception loading sites", e)
-                
-                val errorMessage = "Network error: " + e.message
-                tvEmptyState.visibility = View.VISIBLE
-                tvEmptyState.text = errorMessage
-                
-                Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -171,7 +144,7 @@ class SitesFragment : Fragment() {
         
         if (filteredList.isEmpty() && query.isNotEmpty()) {
             tvEmptyState.visibility = View.VISIBLE
-            tvEmptyState.text = "No sites found for: " + query
+            tvEmptyState.text = "No sites found for: $query"
         } else {
             tvEmptyState.visibility = View.GONE
         }
@@ -204,11 +177,52 @@ class SitesFragment : Fragment() {
                     return@setPositiveButton
                 }
                 
-                Toast.makeText(requireContext(), "Add site API coming soon", Toast.LENGTH_SHORT).show()
-                loadSites()
+                val lat = latStr.toDoubleOrNull()
+                val lon = lonStr.toDoubleOrNull()
+                val radius = radiusStr.toDoubleOrNull() ?: 100.0
+                
+                if (lat == null || lon == null) {
+                    Toast.makeText(requireContext(), "Invalid GPS coordinates", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                createSite(name, lat, lon, radius)
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun createSite(name: String, lat: Double, lon: Double, radius: Double) {
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("token", "") ?: ""
+        
+        progressBar.visibility = View.VISIBLE
+        
+        lifecycleScope.launch {
+            try {
+                val siteRequest = SiteCreateRequest(
+                    name = name,
+                    gps_lat = lat,
+                    gps_lon = lon,
+                    radius_m = radius
+                )
+                
+                val response = RetrofitInstance.api.createSite("Bearer $token", siteRequest)
+                
+                if (response.isSuccessful) {
+                    Toast.makeText(requireContext(), "Site created successfully!", Toast.LENGTH_SHORT).show()
+                    loadSites() // Refresh list
+                } else {
+                    Toast.makeText(requireContext(), "Failed to create site", Toast.LENGTH_SHORT).show()
+                }
+                
+                progressBar.visibility = View.GONE
+                
+            } catch (e: Exception) {
+                progressBar.visibility = View.GONE
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun showEditSiteDialog(site: Site) {
@@ -233,32 +247,93 @@ class SitesFragment : Fragment() {
                 val lonStr = etLongitude.text.toString().trim()
                 val radiusStr = etRadius.text.toString().trim()
                 
-                if (name.isEmpty()) {
-                    Toast.makeText(requireContext(), "Name is required", Toast.LENGTH_SHORT).show()
+                if (name.isEmpty() || latStr.isEmpty() || lonStr.isEmpty()) {
+                    Toast.makeText(requireContext(), "All fields are required", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 
-                if (latStr.isEmpty() || lonStr.isEmpty()) {
-                    Toast.makeText(requireContext(), "GPS coordinates are required", Toast.LENGTH_SHORT).show()
+                val lat = latStr.toDoubleOrNull()
+                val lon = lonStr.toDoubleOrNull()
+                val radius = radiusStr.toDoubleOrNull() ?: 100.0
+                
+                if (lat == null || lon == null) {
+                    Toast.makeText(requireContext(), "Invalid GPS coordinates", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 
-                Toast.makeText(requireContext(), "Update site API coming soon", Toast.LENGTH_SHORT).show()
-                loadSites()
+                updateSite(site.id, name, lat, lon, radius)
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
+    private fun updateSite(siteId: Int, name: String, lat: Double, lon: Double, radius: Double) {
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("token", "") ?: ""
+        
+        progressBar.visibility = View.VISIBLE
+        
+        lifecycleScope.launch {
+            try {
+                val siteRequest = SiteCreateRequest(
+                    name = name,
+                    gps_lat = lat,
+                    gps_lon = lon,
+                    radius_m = radius
+                )
+                
+                val response = RetrofitInstance.api.updateSite("Bearer $token", siteId, siteRequest)
+                
+                if (response.isSuccessful) {
+                    Toast.makeText(requireContext(), "Site updated successfully!", Toast.LENGTH_SHORT).show()
+                    loadSites() // Refresh list
+                } else {
+                    Toast.makeText(requireContext(), "Failed to update site", Toast.LENGTH_SHORT).show()
+                }
+                
+                progressBar.visibility = View.GONE
+                
+            } catch (e: Exception) {
+                progressBar.visibility = View.GONE
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun showDeleteConfirmation(site: Site) {
         AlertDialog.Builder(requireContext())
             .setTitle("Delete Site")
-            .setMessage("Are you sure you want to delete " + site.name + "?")
+            .setMessage("Are you sure you want to delete ${site.name}?")
             .setPositiveButton("Delete") { _, _ ->
-                Toast.makeText(requireContext(), "Delete site API coming soon", Toast.LENGTH_SHORT).show()
-                loadSites()
+                deleteSite(site.id)
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun deleteSite(siteId: Int) {
+        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("token", "") ?: ""
+        
+        progressBar.visibility = View.VISIBLE
+        
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitInstance.api.deleteSite("Bearer $token", siteId)
+                
+                if (response.isSuccessful) {
+                    Toast.makeText(requireContext(), "Site deleted successfully!", Toast.LENGTH_SHORT).show()
+                    loadSites() // Refresh list
+                } else {
+                    Toast.makeText(requireContext(), "Failed to delete site", Toast.LENGTH_SHORT).show()
+                }
+                
+                progressBar.visibility = View.GONE
+                
+            } catch (e: Exception) {
+                progressBar.visibility = View.GONE
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 }
