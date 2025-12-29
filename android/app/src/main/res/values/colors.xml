@@ -1,44 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Primary Colors - Agricultural Corporate -->
-    <color name="primary">#00796B</color>           <!-- Deep Teal - Nature + Professional -->
-    <color name="primary_dark">#004D40</color>      <!-- Dark Green - Depth -->
-    <color name="primary_light">#B2DFDB</color>     <!-- Light Teal - Subtle accents -->
+    <!-- Primary Colors -->
+    <color name="primary">#00796B</color>
+    <color name="primary_dark">#004D40</color>
+    <color name="primary_light">#B2DFDB</color>
     
-    <!-- Accent Colors - Vibrant Agricultural -->
-    <color name="accent">#4CAF50</color>            <!-- Fresh Green - CTAs -->
-    <color name="accent_light">#81C784</color>      <!-- Light Green - Hover states -->
-    <color name="accent_dark">#388E3C</color>       <!-- Dark Green - Pressed states -->
+    <!-- Accent Colors -->
+    <color name="accent">#4CAF50</color>
+    <color name="accent_dark">#2E7D32</color>
+    <color name="accent_light">#C8E6C9</color>
     
     <!-- Background Colors -->
-    <color name="background">#FAFAFA</color>        <!-- Off-white - Clean -->
-    <color name="surface">#FFFFFF</color>           <!-- Pure White - Cards -->
-    <color name="surface_overlay">#F5F5F5</color>   <!-- Light Gray - Subtle overlays -->
+    <color name="background">#FAFAFA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_overlay">#F5F5F5</color>
     
     <!-- Text Colors -->
-    <color name="text_primary">#212121</color>      <!-- Near Black - High readability -->
-    <color name="text_secondary">#757575</color>    <!-- Medium Gray - Secondary text -->
-    <color name="text_hint">#9E9E9E</color>         <!-- Light Gray - Hints -->
-    <color name="text_disabled">#BDBDBD</color>     <!-- Very Light Gray - Disabled -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="text_hint">#9E9E9E</color>
     
     <!-- Semantic Colors -->
-    <color name="error">#D32F2F</color>             <!-- Warm Red - Errors -->
-    <color name="error_light">#FFCDD2</color>       <!-- Light Red - Error backgrounds -->
-    <color name="success">#4CAF50</color>           <!-- Green - Success states -->
-    <color name="warning">#FFA726</color>           <!-- Orange - Warnings -->
-    <color name="info">#29B6F6</color>              <!-- Blue - Information -->
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FF9800</color>
+    <color name="error">#F44336</color>
+    <color name="info">#2196F3</color>
     
-    <!-- UI Elements -->
-    <color name="divider">#E0E0E0</color>           <!-- Light Gray - Dividers -->
-    <color name="border">#CCCCCC</color>            <!-- Gray - Borders -->
-    <color name="shadow">#1A000000</color>          <!-- 10% Black - Shadows -->
+    <!-- Utility Colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="divider">#E0E0E0</color>
     
-    <!-- Legacy Material Colors (keep for compatibility) -->
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- Pill Button Backgrounds -->
+    <color name="pill_green">#E8F5E9</color>
+    <color name="pill_gray">#EEEEEE</color>
+    <color name="pill_blue">#E3F2FD</color>
+    
+    <!-- Avatar Colors -->
+    <color name="avatar_orange">#FF9800</color>
+    <color name="avatar_blue">#2196F3</color>
+    <color name="avatar_green">#4CAF50</color>
+    <color name="avatar_purple">#9C27B0</color>
 </resources>

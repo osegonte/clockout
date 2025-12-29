@@ -1,125 +1,279 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:background="#F5F5F5">
+    android:background="@color/background">
 
-    <!-- Header -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="ClockOut"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:textColor="#1976D2"
-        android:layout_marginBottom="8dp"/>
+    <!-- Top Gradient Background -->
+    <View
+        android:id="@+id/topGradient"
+        android:layout_width="0dp"
+        android:layout_height="300dp"
+        android:background="@drawable/gradient_green"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
-    <TextView
-        android:id="@+id/tvSiteName"
-        android:layout_width="match_parent"
+    <!-- Today's Stats Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/statsCard"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Loading site..."
-        android:textSize="18sp"
-        android:textColor="#666666"
-        android:layout_marginBottom="32dp"/>
-
-    <!-- GPS Status Card -->
-    <androidx.cardview.widget.CardView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
-        android:elevation="4dp">
+        android:layout_marginHorizontal="@dimen/spacing_lg"
+        android:layout_marginTop="@dimen/spacing_xl"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="4dp"
+        app:cardBackgroundColor="@color/white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:orientation="horizontal"
+            android:padding="@dimen/spacing_lg"
+            android:gravity="center_vertical">
 
             <TextView
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="GPS Status"
+                android:layout_weight="1"
+                android:text="Today's work hours"
                 android:textSize="16sp"
+                android:textColor="@color/text_primary"/>
+
+            <TextView
+                android:id="@+id/tvTodayHours"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:id="@+id/tvGpsStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Getting location..."
-                android:textSize="14sp"
-                android:textColor="#666666"/>
-
-            <TextView
-                android:id="@+id/tvDistance"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Distance: --"
-                android:textSize="14sp"
-                android:textColor="#666666"
-                android:layout_marginTop="4dp"/>
+                android:textColor="@color/primary"/>
 
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
 
-    <!-- Worker Selection -->
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Attendance Status Text -->
     <TextView
-        android:layout_width="match_parent"
+        android:id="@+id/tvAttendanceStatus"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Select Worker"
-        android:textSize="16sp"
+        android:text="Ready to clock in"
+        android:textSize="18sp"
         android:textStyle="bold"
-        android:layout_marginBottom="8dp"/>
+        android:textColor="@color/text_primary"
+        android:layout_marginTop="@dimen/spacing_xxl"
+        app:layout_constraintTop_toBottomOf="@id/statsCard"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
-    <Spinner
-        android:id="@+id/spinnerWorker"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
-        android:padding="12dp"
-        android:background="@android:drawable/btn_dropdown"/>
+    <!-- Large Clock In/Out Button -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/btnClockInOut"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        app:cardCornerRadius="100dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="@color/info"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground"
+        android:layout_marginTop="@dimen/spacing_xl"
+        app:layout_constraintTop_toBottomOf="@id/tvAttendanceStatus"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-    <!-- Check In/Out Buttons -->
-    <Button
-        android:id="@+id/btnCheckIn"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:text="CHECK IN"
-        android:textSize="18sp"
-        android:backgroundTint="#4CAF50"
-        android:layout_marginBottom="12dp"/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center">
 
-    <Button
-        android:id="@+id/btnCheckOut"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:text="CHECK OUT"
-        android:textSize="18sp"
-        android:backgroundTint="#F44336"
-        android:layout_marginBottom="24dp"/>
+            <ImageView
+                android:id="@+id/ivClockIcon"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:src="@drawable/ic_attendance"
+                app:tint="@color/white"
+                android:layout_marginBottom="@dimen/spacing_sm"/>
 
-    <!-- Sync Status -->
+            <TextView
+                android:id="@+id/tvClockAction"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Clock In"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/white"/>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Current Time Display -->
     <TextView
-        android:id="@+id/tvSyncStatus"
-        android:layout_width="match_parent"
+        android:id="@+id/tvCurrentTime"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="✓ All synced"
-        android:textSize="14sp"
-        android:textColor="#4CAF50"
-        android:gravity="center"
-        android:layout_marginBottom="12dp"/>
-
-    <!-- SYNC NOW BUTTON -->
-    <Button
-        android:id="@+id/btnSync"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="🔄 SYNC NOW"
+        android:text="12:30 PM"
         android:textSize="16sp"
-        android:backgroundTint="#2196F3"/>
+        android:textColor="@color/text_secondary"
+        android:layout_marginTop="@dimen/spacing_md"
+        app:layout_constraintTop_toBottomOf="@id/btnClockInOut"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
-</LinearLayout>
+    <!-- Action Buttons Row -->
+    <LinearLayout
+        android:id="@+id/actionButtonsRow"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginHorizontal="@dimen/spacing_lg"
+        android:layout_marginTop="@dimen/spacing_xl"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@id/tvCurrentTime"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- View History Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnViewHistory"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="@dimen/spacing_sm"
+            android:text="View History"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:textColor="@color/primary"
+            app:icon="@drawable/ic_attendance"
+            app:iconTint="@color/primary"
+            app:iconGravity="textStart"
+            app:cornerRadius="28dp"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="2dp"
+            app:backgroundTint="@color/white"
+            android:elevation="0dp"/>
+
+        <!-- Select Site Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSelectSite"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginStart="@dimen/spacing_sm"
+            android:text="Select Site"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:textColor="@color/accent"
+            app:icon="@drawable/ic_sites"
+            app:iconTint="@color/accent"
+            app:iconGravity="textStart"
+            app:cornerRadius="28dp"
+            app:strokeColor="@color/accent"
+            app:strokeWidth="2dp"
+            app:backgroundTint="@color/white"
+            android:elevation="0dp"/>
+
+    </LinearLayout>
+
+    <!-- Bottom Info Cards -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginHorizontal="@dimen/spacing_lg"
+        android:layout_marginTop="@dimen/spacing_xl"
+        android:layout_marginBottom="@dimen/spacing_lg"
+        android:weightSum="2"
+        app:layout_constraintTop_toBottomOf="@id/actionButtonsRow"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintVertical_bias="1.0">
+
+        <!-- Selected Site Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="@dimen/spacing_sm"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="@color/surface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_md"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_sites"
+                    app:tint="@color/warning"
+                    android:layout_marginBottom="@dimen/spacing_xs"/>
+
+                <TextView
+                    android:id="@+id/tvSelectedSite"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No site selected"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:maxLines="2"
+                    android:ellipsize="end"/>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- GPS Status Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="@dimen/spacing_sm"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="@color/surface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_md"
+                android:gravity="center">
+
+                <ImageView
+                    android:id="@+id/ivGpsIcon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_sites"
+                    app:tint="@color/success"
+                    android:layout_marginBottom="@dimen/spacing_xs"/>
+
+                <TextView
+                    android:id="@+id/tvGpsStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="GPS Ready"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"/>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

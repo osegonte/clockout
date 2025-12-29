@@ -2,17 +2,26 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/nav_home"
-        android:title="Home" />
+        android:icon="@drawable/ic_home"
+        android:title="" />
+    
     <item
         android:id="@+id/nav_attendance"
-        android:title="Attendance" />
-    <item
-        android:id="@+id/nav_workers"
-        android:title="Workers" />
+        android:icon="@drawable/ic_attendance"
+        android:title="" />
+    
     <item
         android:id="@+id/nav_sites"
-        android:title="Sites" />
+        android:icon="@drawable/ic_sites"
+        android:title="" />
+    
+    <item
+        android:id="@+id/nav_workers"
+        android:icon="@drawable/ic_workers"
+        android:title="" />
+    
     <item
         android:id="@+id/nav_profile"
-        android:title="Profile" />
+        android:icon="@drawable/ic_profile"
+        android:title="" />
 </menu>

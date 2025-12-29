@@ -3,6 +3,8 @@ package com.example.clockoutandroid
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.CheckBox
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.clockoutandroid.databinding.ActivityLoginBinding
@@ -37,7 +39,19 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
         
+        loadSavedCredentials()
         setupClickListeners()
+    }
+    
+    private fun loadSavedCredentials() {
+        val prefs = getSharedPreferences("auth", Context.MODE_PRIVATE)
+        val savedEmail = prefs.getString("saved_email", "")
+        val rememberMe = prefs.getBoolean("remember_me", false)
+        
+        if (rememberMe && !savedEmail.isNullOrEmpty()) {
+            binding.etEmail.setText(savedEmail)
+            binding.cbRememberMe.isChecked = true
+        }
     }
     
     private fun setupClickListeners() {
@@ -64,11 +78,16 @@ class LoginActivity : AppCompatActivity() {
             val intent = Intent(this, RegisterActivity::class.java)
             startActivity(intent)
         }
+        
+        // Forgot password (placeholder for now)
+        binding.tvForgotPassword.setOnClickListener {
+            Toast.makeText(this, "Password reset coming soon", Toast.LENGTH_SHORT).show()
+        }
     }
     
     private fun performLogin(email: String, password: String) {
         binding.btnLogin.isEnabled = false
-        binding.btnLogin.text = "Logging in..."
+        binding.btnLogin.text = "Signing in..."
         
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -107,6 +126,16 @@ class LoginActivity : AppCompatActivity() {
                         putString("user_mode", userObj.getString("mode"))
                         putInt("organization_id", userObj.getInt("organization_id"))
                         putLong("login_time", System.currentTimeMillis())
+                        
+                        // Save remember me preference
+                        val rememberMe = binding.cbRememberMe.isChecked
+                        putBoolean("remember_me", rememberMe)
+                        if (rememberMe) {
+                            putString("saved_email", email)
+                        } else {
+                            remove("saved_email")
+                        }
+                        
                         apply()
                     }
                     
@@ -117,7 +146,7 @@ class LoginActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@LoginActivity, "Invalid email or password", Toast.LENGTH_SHORT).show()
                         binding.btnLogin.isEnabled = true
-                        binding.btnLogin.text = "Login"
+                        binding.btnLogin.text = "Sign In"
                     }
                 }
                 
@@ -125,7 +154,7 @@ class LoginActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@LoginActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                     binding.btnLogin.isEnabled = true
-                    binding.btnLogin.text = "Login"
+                    binding.btnLogin.text = "Sign In"
                 }
             }
         }

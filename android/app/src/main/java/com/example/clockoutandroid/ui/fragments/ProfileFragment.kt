@@ -1,169 +1,239 @@
 package com.example.clockoutandroid.ui.fragments
 
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
+import com.example.clockoutandroid.ApiConfig
 import com.example.clockoutandroid.LoginActivity
-import com.example.clockoutandroid.R
+import com.example.clockoutandroid.databinding.FragmentProfileBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import java.net.HttpURLConnection
+import java.net.URL
 
 class ProfileFragment : Fragment() {
     
-    private lateinit var tvUserName: TextView
-    private lateinit var tvUserEmail: TextView
-    private lateinit var tvUserRole: TextView
-    private lateinit var tvSyncStatus: TextView
-    private lateinit var tvAppVersion: TextView
-    private lateinit var btnSync: Button
-    private lateinit var btnLogout: Button
+    private var _binding: FragmentProfileBinding? = null
+    private val binding get() = _binding!!
+    
+    private var token: String = ""
+    private var userName: String = ""
+    private var userEmail: String = ""
+    private var userRole: String = ""
+    private var organizationId: Int = 0
+    private var organizationName: String = ""
     
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_profile, container, false)
+    ): View {
+        _binding = FragmentProfileBinding.inflate(inflater, container, false)
+        return binding.root
     }
-
+    
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        initViews(view)
-        loadUserInfo()
-        updateSyncStatus()
-        setupButtons()
+        loadUserData()
+        displayUserInfo()
+        loadStats()
+        setupClickListeners()
     }
-
-    private fun initViews(view: View) {
-        tvUserName = view.findViewById(R.id.tvUserName)
-        tvUserEmail = view.findViewById(R.id.tvUserEmail)
-        tvUserRole = view.findViewById(R.id.tvUserRole)
-        tvSyncStatus = view.findViewById(R.id.tvSyncStatus)
-        tvAppVersion = view.findViewById(R.id.tvAppVersion)
-        btnSync = view.findViewById(R.id.btnSync)
-        btnLogout = view.findViewById(R.id.btnLogout)
+    
+    private fun loadUserData() {
+        val prefs = requireContext().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        token = prefs.getString("token", "") ?: ""
+        userName = prefs.getString("user_name", "User") ?: "User"
+        userEmail = prefs.getString("email", "") ?: ""
+        userRole = prefs.getString("user_role", "user") ?: "user"
+        organizationId = prefs.getInt("organization_id", 0)
     }
-
-    private fun loadUserInfo() {
-        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
+    
+    private fun displayUserInfo() {
+        // Set user initials
+        val initials = getInitials(userName)
+        binding.tvUserInitials.text = initials
         
-        val userName = sharedPref.getString("user_name", null)
-        val userEmail = sharedPref.getString("email", null)
-        val userMode = sharedPref.getString("user_mode", "worker") ?: "worker"
+        // Set user name
+        binding.tvUserName.text = userName
         
-        // Set user info
-        if (userName != null) {
-            tvUserName.text = userName
-        } else {
-            tvUserName.text = "User"
-        }
+        // Set email
+        binding.tvUserEmail.text = userEmail
         
-        if (userEmail != null) {
-            tvUserEmail.text = userEmail
-        } else {
-            tvUserEmail.text = "No email set"
-        }
-        
-        // Format role nicely
-        val roleText = when (userMode) {
-            "admin" -> "Administrator"
+        // Set role with proper capitalization
+        binding.tvUserRole.text = when (userRole.lowercase()) {
+            "admin" -> "Admin"
             "manager" -> "Manager"
             "worker" -> "Worker"
-            else -> userMode.capitalize()
+            else -> "User"
         }
-        tvUserRole.text = roleText
         
-        // App version
-        try {
-            val packageInfo = requireActivity().packageManager.getPackageInfo(requireActivity().packageName, 0)
-            val versionText = "Version " + packageInfo.versionName
-            tvAppVersion.text = versionText
-        } catch (e: Exception) {
-            tvAppVersion.text = "Version 1.0"
+        // Fetch organization name
+        fetchOrganizationName()
+    }
+    
+    private fun getInitials(name: String): String {
+        val parts = name.trim().split(" ")
+        return when {
+            parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}".uppercase()
+            parts.size == 1 && parts[0].isNotEmpty() -> {
+                if (parts[0].length >= 2) {
+                    parts[0].substring(0, 2).uppercase()
+                } else {
+                    parts[0].first().uppercase()
+                }
+            }
+            else -> "U"
         }
     }
-
-    private fun updateSyncStatus() {
-        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
-        val pendingEvents = sharedPref.getString("pending_events", "[]") ?: "[]"
+    
+    private fun fetchOrganizationName() {
+        if (organizationId == 0) return
         
-        try {
-            val eventsArray = JSONArray(pendingEvents)
-            val count = eventsArray.length()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val url = URL("${ApiConfig.BASE_URL}/organizations/$organizationId")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                    val response = connection.inputStream.bufferedReader().readText()
+                    val jsonResponse = org.json.JSONObject(response)
+                    organizationName = jsonResponse.optString("name", "Organization")
+                    
+                    withContext(Dispatchers.Main) {
+                        binding.tvOrganizationName.text = organizationName
+                    }
+                }
+                
+            } catch (e: Exception) {
+                // Silent fail - keep default text
+            }
+        }
+    }
+    
+    private fun loadStats() {
+        if (token.isEmpty()) return
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Load workers count
+                val workersCount = fetchCount("${ApiConfig.BASE_URL}/workers/?organization_id=$organizationId")
+                
+                // Load sites count
+                val sitesCount = fetchCount("${ApiConfig.BASE_URL}/sites/?organization_id=$organizationId")
+                
+                // Load attendance count
+                val attendanceCount = fetchCount("${ApiConfig.BASE_URL}/attendance/?organization_id=$organizationId")
+                
+                withContext(Dispatchers.Main) {
+                    binding.tvTotalWorkers.text = workersCount.toString()
+                    binding.tvTotalSites.text = sitesCount.toString()
+                    binding.tvTotalAttendance.text = attendanceCount.toString()
+                }
+                
+            } catch (e: Exception) {
+                // Silent fail - keep showing 0s
+            }
+        }
+    }
+    
+    private fun fetchCount(urlString: String): Int {
+        return try {
+            val url = URL(urlString)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer $token")
             
-            if (count == 0) {
-                tvSyncStatus.text = "All synced"
-                btnSync.isEnabled = false
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                val response = connection.inputStream.bufferedReader().readText()
+                val jsonArray = JSONArray(response)
+                jsonArray.length()
             } else {
-                val statusText = count.toString() + " events pending sync"
-                tvSyncStatus.text = statusText
-                btnSync.isEnabled = true
+                0
             }
         } catch (e: Exception) {
-            tvSyncStatus.text = "Sync status unavailable"
-            btnSync.isEnabled = false
+            0
         }
     }
-
-    private fun setupButtons() {
-        btnSync.setOnClickListener {
-            performSync()
+    
+    private fun setupClickListeners() {
+        // Edit Profile
+        binding.btnEditProfile.setOnClickListener {
+            Toast.makeText(requireContext(), "Edit profile coming soon", Toast.LENGTH_SHORT).show()
         }
         
-        btnLogout.setOnClickListener {
-            showLogoutConfirmation()
+        // Change Password
+        binding.btnChangePassword.setOnClickListener {
+            Toast.makeText(requireContext(), "Change password coming soon", Toast.LENGTH_SHORT).show()
+        }
+        
+        // About
+        binding.btnAbout.setOnClickListener {
+            showAboutDialog()
+        }
+        
+        // Logout
+        binding.btnLogout.setOnClickListener {
+            performLogout()
         }
     }
-
-    private fun performSync() {
-        Toast.makeText(requireContext(), "Manual sync coming soon", Toast.LENGTH_SHORT).show()
+    
+    private fun showAboutDialog() {
+        val message = """
+            ClockOut v1.0.0
+            
+            GPS-verified farm attendance tracking system for Nigerian agriculture.
+            
+            Features:
+            • GPS geofencing
+            • Real-time attendance
+            • Multi-site management
+            • Worker tracking
+            
+            © 2024 ClockOut
+        """.trimIndent()
         
-        // TODO: Implement actual sync logic
-        // For now, just update the status
-        updateSyncStatus()
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("About ClockOut")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
     }
-
-    private fun showLogoutConfirmation() {
-        AlertDialog.Builder(requireContext())
+    
+    private fun performLogout() {
+        // Confirm logout
+        android.app.AlertDialog.Builder(requireContext())
             .setTitle("Logout")
             .setMessage("Are you sure you want to logout?")
             .setPositiveButton("Logout") { _, _ ->
-                performLogout()
+                // Clear all saved data
+                val prefs = requireContext().getSharedPreferences("auth", Context.MODE_PRIVATE)
+                prefs.edit().clear().apply()
+                
+                // Navigate to login
+                val intent = Intent(requireContext(), LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                
+                Toast.makeText(requireContext(), "Logged out successfully", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
-
-    private fun performLogout() {
-        // Clear all auth data
-        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
-        sharedPref.edit().clear().apply()
-        
-        // Also clear pending events if needed
-        // sharedPref.edit().remove("pending_events").apply()
-        
-        Toast.makeText(requireContext(), "Logged out successfully", Toast.LENGTH_SHORT).show()
-        
-        // Navigate to login
-        val intent = Intent(requireActivity(), LoginActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        requireActivity().finish()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Refresh sync status when fragment becomes visible
-        updateSyncStatus()
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

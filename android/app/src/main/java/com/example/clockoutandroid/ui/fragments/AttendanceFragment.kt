@@ -5,168 +5,172 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
-import android.os.Looper
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.Spinner
-import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
-import com.example.clockoutandroid.R
-import com.example.clockoutandroid.data.models.Site
-import com.example.clockoutandroid.data.models.Worker
-import com.example.clockoutandroid.data.remote.RetrofitInstance
+import com.example.clockoutandroid.ApiConfig
+import com.example.clockoutandroid.databinding.FragmentAttendanceBinding
 import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.json.JSONArray
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.UUID
+import java.util.*
 
 class AttendanceFragment : Fragment() {
-
+    
+    private var _binding: FragmentAttendanceBinding? = null
+    private val binding get() = _binding!!
+    
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var locationCallback: LocationCallback
     
-    private lateinit var tvGpsStatus: TextView
-    private lateinit var tvSiteName: TextView
-    private lateinit var tvSyncStatus: TextView
-    private lateinit var spinnerWorker: Spinner
-    private lateinit var btnCheckIn: Button
-    private lateinit var btnCheckOut: Button
+    private var token: String = ""
+    private var userId: Int = 0
+    private var organizationId: Int = 0
+    private var selectedSiteId: Int = 0
+    private var isClockedIn = false
+    private var currentAttendanceId: Int = 0
     
-    private var currentLocation: Location? = null
-    private var currentSite: Site? = null
-    private val GEOFENCE_RADIUS = 100.0
-
+    companion object {
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
+    }
+    
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_attendance, container, false)
+    ): View {
+        _binding = FragmentAttendanceBinding.inflate(inflater, container, false)
+        return binding.root
     }
-
+    
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        initViews(view)
-        setupLocationClient()
-        loadSiteAndWorkers()
-    }
-
-    private fun initViews(view: View) {
-        tvGpsStatus = view.findViewById(R.id.tvGpsStatus)
-        tvSiteName = view.findViewById(R.id.tvSiteName)
-        tvSyncStatus = view.findViewById(R.id.tvSyncStatus)
-        spinnerWorker = view.findViewById(R.id.spinnerWorker)
-        btnCheckIn = view.findViewById(R.id.btnCheckIn)
-        btnCheckOut = view.findViewById(R.id.btnCheckOut)
-        
-        btnCheckIn.setOnClickListener { markAttendance("IN") }
-        btnCheckOut.setOnClickListener { markAttendance("OUT") }
-    }
-
-    private fun setupLocationClient() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
         
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                val location = locationResult.lastLocation
-                if (location != null) {
-                    currentLocation = location
-                    currentSite?.let { site -> validateGeofence(location, site) }
-                } else {
-                    tvGpsStatus.text = "Location unavailable"
-                }
+        loadUserData()
+        updateCurrentTime()
+        checkAttendanceStatus()
+        setupClickListeners()
+    }
+    
+    private fun loadUserData() {
+        val prefs = requireContext().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        token = prefs.getString("token", "") ?: ""
+        userId = prefs.getInt("user_id", 0)
+        organizationId = prefs.getInt("organization_id", 0)
+    }
+    
+    private fun updateCurrentTime() {
+        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+        val currentTime = timeFormat.format(Date())
+        binding.tvCurrentTime.text = currentTime
+    }
+    
+    private fun setupClickListeners() {
+        // Main clock in/out button
+        binding.btnClockInOut.setOnClickListener {
+            if (isClockedIn) {
+                performClockOut()
+            } else {
+                performClockIn()
             }
         }
+        
+        // View history
+        binding.btnViewHistory.setOnClickListener {
+            Toast.makeText(requireContext(), "Attendance history coming soon", Toast.LENGTH_SHORT).show()
+        }
+        
+        // Select site
+        binding.btnSelectSite.setOnClickListener {
+            Toast.makeText(requireContext(), "Opening site selection...", Toast.LENGTH_SHORT).show()
+            // TODO: Open site selection dialog
+        }
     }
-
-    private fun loadSiteAndWorkers() {
-        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
-        val token = sharedPref.getString("token", "") ?: ""
-        val userMode = sharedPref.getString("user_mode", "manager") ?: "manager"
-        
-        Log.d("AttendanceFragment", "Loading data for mode: $userMode")
-        
-        lifecycleScope.launch {
+    
+    private fun checkAttendanceStatus() {
+        // Check if user is already clocked in today
+        CoroutineScope(Dispatchers.IO).launch {
             try {
-                val sitesResponse = RetrofitInstance.api.getSites("Bearer $token")
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val today = dateFormat.format(Date())
                 
-                if (sitesResponse.isSuccessful) {
-                    val sites = sitesResponse.body() ?: emptyList()
-                    Log.d("AttendanceFragment", "Fetched ${sites.size} sites")
+                val url = URL("${ApiConfig.BASE_URL}/attendance/?organization_id=$organizationId&user_id=$userId")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                    val response = connection.inputStream.bufferedReader().readText()
+                    val jsonArray = org.json.JSONArray(response)
                     
-                    if (sites.isNotEmpty()) {
-                        currentSite = sites[0]
-                        val siteName = currentSite?.name ?: "Unknown Site"
-                        tvSiteName.text = siteName
-                        requestLocationUpdates()
-                    } else {
-                        tvSiteName.text = "No sites available"
-                        tvGpsStatus.text = "No site assigned"
+                    // Check if there's an open attendance record today
+                    for (i in 0 until jsonArray.length()) {
+                        val record = jsonArray.getJSONObject(i)
+                        val clockInTime = record.optString("clock_in_time", "")
+                        val clockOutTime = record.optString("clock_out_time", "")
+                        
+                        if (clockInTime.startsWith(today) && clockOutTime.isEmpty()) {
+                            // User is clocked in
+                            currentAttendanceId = record.getInt("id")
+                            val siteId = record.optInt("site_id", 0)
+                            
+                            withContext(Dispatchers.Main) {
+                                updateUIForClockedIn(siteId)
+                            }
+                            return@launch
+                        }
                     }
-                } else {
-                    Log.e("AttendanceFragment", "Failed to fetch sites: ${sitesResponse.code()}")
-                    tvSiteName.text = "Error loading site"
-                }
-                
-            } catch (e: Exception) {
-                Log.e("AttendanceFragment", "Error loading site", e)
-                tvSiteName.text = "Error loading site"
-            }
-        }
-        
-        updateWorkerSpinner()
-    }
-
-    private fun updateWorkerSpinner() {
-        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
-        val token = sharedPref.getString("token", "") ?: ""
-        
-        lifecycleScope.launch {
-            try {
-                val workersResponse = RetrofitInstance.api.getWorkers("Bearer $token")
-                
-                if (workersResponse.isSuccessful) {
-                    val workers = workersResponse.body() ?: emptyList()
-                    Log.d("AttendanceFragment", "Fetched ${workers.size} workers")
                     
-                    val workerNames = workers.map { it.name }
-                    val adapter = ArrayAdapter(
-                        requireContext(),
-                        android.R.layout.simple_spinner_item,
-                        workerNames
-                    )
-                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                    spinnerWorker.adapter = adapter
-                } else {
-                    Log.e("AttendanceFragment", "Failed to fetch workers: ${workersResponse.code()}")
-                    Toast.makeText(requireContext(), "Error loading workers", Toast.LENGTH_SHORT).show()
+                    // Not clocked in
+                    withContext(Dispatchers.Main) {
+                        updateUIForClockedOut()
+                    }
                 }
                 
             } catch (e: Exception) {
-                Log.e("AttendanceFragment", "Error loading workers", e)
-                Toast.makeText(requireContext(), "Error loading workers", Toast.LENGTH_SHORT).show()
+                withContext(Dispatchers.Main) {
+                    updateUIForClockedOut()
+                }
             }
         }
     }
-
-    private fun requestLocationUpdates() {
+    
+    private fun updateUIForClockedIn(siteId: Int) {
+        isClockedIn = true
+        selectedSiteId = siteId
+        binding.tvClockAction.text = "Clock Out"
+        binding.tvAttendanceStatus.text = "Currently clocked in"
+        binding.btnClockInOut.setCardBackgroundColor(
+            ContextCompat.getColor(requireContext(), com.example.clockoutandroid.R.color.error)
+        )
+        // TODO: Fetch site name and update tvSelectedSite
+    }
+    
+    private fun updateUIForClockedOut() {
+        isClockedIn = false
+        binding.tvClockAction.text = "Clock In"
+        binding.tvAttendanceStatus.text = "Ready to clock in"
+        binding.btnClockInOut.setCardBackgroundColor(
+            ContextCompat.getColor(requireContext(), com.example.clockoutandroid.R.color.info)
+        )
+        binding.tvSelectedSite.text = "No site selected"
+        binding.tvTodayHours.text = "0:00"
+    }
+    
+    private fun performClockIn() {
+        // Check location permission
         if (ActivityCompat.checkSelfPermission(
                 requireContext(),
                 Manifest.permission.ACCESS_FINE_LOCATION
@@ -174,107 +178,140 @@ class AttendanceFragment : Fragment() {
         ) {
             requestPermissions(
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                100
+                LOCATION_PERMISSION_REQUEST_CODE
             )
             return
         }
         
-        // FIXED: Use new LocationRequest API for newer Play Services versions
-        val locationRequest = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            10000L // interval in milliseconds
-        ).apply {
-            setMinUpdateIntervalMillis(5000L)
-        }.build()
-        
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest,
-            locationCallback,
-            Looper.getMainLooper()
-        )
-        
-        tvGpsStatus.text = "Getting location..."
-    }
-
-    private fun validateGeofence(location: Location, site: Site) {
-        val siteLocation = Location("").apply {
-            latitude = site.latitude
-            longitude = site.longitude
-        }
-        
-        val distance = location.distanceTo(siteLocation)
-        
-        if (distance <= GEOFENCE_RADIUS) {
-            tvGpsStatus.text = "Inside geofence"
-            btnCheckIn.isEnabled = true
-            btnCheckOut.isEnabled = true
-        } else {
-            val distanceInt = distance.toInt()
-            tvGpsStatus.text = "Outside geofence (${distanceInt}m away)"
-            btnCheckIn.isEnabled = false
-            btnCheckOut.isEnabled = false
+        // Get current location
+        fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+            if (location != null) {
+                sendClockInRequest(location.latitude, location.longitude)
+            } else {
+                Toast.makeText(requireContext(), "Unable to get location. Please try again.", Toast.LENGTH_SHORT).show()
+            }
         }
     }
-
-    private fun markAttendance(eventType: String) {
-        val selectedWorkerName = spinnerWorker.selectedItem?.toString()
-        
-        if (selectedWorkerName == null) {
-            Toast.makeText(requireContext(), "Please select a worker", Toast.LENGTH_SHORT).show()
+    
+    private fun sendClockInRequest(latitude: Double, longitude: Double) {
+        if (selectedSiteId == 0) {
+            Toast.makeText(requireContext(), "Please select a site first", Toast.LENGTH_SHORT).show()
             return
         }
         
-        val location = currentLocation
-        val site = currentSite
-        
-        if (location == null || site == null) {
-            Toast.makeText(requireContext(), "GPS or site not ready", Toast.LENGTH_SHORT).show()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val url = URL("${ApiConfig.BASE_URL}/attendance/")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                connection.doOutput = true
+                
+                val jsonBody = JSONObject().apply {
+                    put("user_id", userId)
+                    put("site_id", selectedSiteId)
+                    put("latitude", latitude)
+                    put("longitude", longitude)
+                    put("organization_id", organizationId)
+                }
+                
+                connection.outputStream.use { outputStream ->
+                    outputStream.write(jsonBody.toString().toByteArray())
+                }
+                
+                val responseCode = connection.responseCode
+                
+                if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                    val response = connection.inputStream.bufferedReader().readText()
+                    val jsonResponse = JSONObject(response)
+                    currentAttendanceId = jsonResponse.getInt("id")
+                    
+                    withContext(Dispatchers.Main) {
+                        updateUIForClockedIn(selectedSiteId)
+                        Toast.makeText(requireContext(), "Clocked in successfully!", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    val error = connection.errorStream?.bufferedReader()?.readText() ?: "Unknown error"
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(requireContext(), "Clock in failed: $error", Toast.LENGTH_LONG).show()
+                    }
+                }
+                
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    
+    private fun performClockOut() {
+        // Get current location
+        if (ActivityCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_PERMISSION_REQUEST_CODE
+            )
             return
         }
         
-        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
-        
-        val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
-        val eventId = UUID.randomUUID().toString()
-        
-        val event = JSONObject().apply {
-            put("id", eventId)
-            put("worker_name", selectedWorkerName)
-            put("site_id", site.id)
-            put("event_type", eventType)
-            put("latitude", location.latitude)
-            put("longitude", location.longitude)
-            put("timestamp", timestamp)
+        fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+            if (location != null) {
+                sendClockOutRequest(location.latitude, location.longitude)
+            } else {
+                Toast.makeText(requireContext(), "Unable to get location. Please try again.", Toast.LENGTH_SHORT).show()
+            }
         }
-        
-        val pendingEvents = sharedPref.getString("pending_events", "[]") ?: "[]"
-        val eventsArray = JSONArray(pendingEvents)
-        eventsArray.put(event)
-        
-        sharedPref.edit().putString("pending_events", eventsArray.toString()).apply()
-        
-        val toastMessage = "$selectedWorkerName checked $eventType"
-        Toast.makeText(requireContext(), toastMessage, Toast.LENGTH_SHORT).show()
-        
-        updateSyncStatus()
     }
-
-    private fun updateSyncStatus() {
-        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
-        val pendingEvents = sharedPref.getString("pending_events", "[]") ?: "[]"
-        val eventsArray = JSONArray(pendingEvents)
-        
-        val eventCount = eventsArray.length()
-        tvSyncStatus.text = "$eventCount events pending sync"
+    
+    private fun sendClockOutRequest(latitude: Double, longitude: Double) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val url = URL("${ApiConfig.BASE_URL}/attendance/$currentAttendanceId")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "PUT"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                connection.doOutput = true
+                
+                val jsonBody = JSONObject().apply {
+                    put("latitude", latitude)
+                    put("longitude", longitude)
+                }
+                
+                connection.outputStream.use { outputStream ->
+                    outputStream.write(jsonBody.toString().toByteArray())
+                }
+                
+                val responseCode = connection.responseCode
+                
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    withContext(Dispatchers.Main) {
+                        updateUIForClockedOut()
+                        Toast.makeText(requireContext(), "Clocked out successfully!", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    val error = connection.errorStream?.bufferedReader()?.readText() ?: "Unknown error"
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(requireContext(), "Clock out failed: $error", Toast.LENGTH_LONG).show()
+                    }
+                }
+                
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
-
-    override fun onResume() {
-        super.onResume()
-        currentSite?.let { requestLocationUpdates() }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

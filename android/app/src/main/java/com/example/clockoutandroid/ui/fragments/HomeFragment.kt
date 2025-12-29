@@ -5,87 +5,200 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
-import com.example.clockoutandroid.R
-import com.example.clockoutandroid.data.remote.RetrofitInstance
-import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.example.clockoutandroid.ApiConfig
+import com.example.clockoutandroid.databinding.FragmentHomeBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import java.net.HttpURLConnection
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.*
 
 class HomeFragment : Fragment() {
-
-    private lateinit var tvWelcome: TextView
-    private lateinit var tvWorkersCount: TextView
-    private lateinit var tvSitesCount: TextView
-    private lateinit var tvTodayAttendance: TextView
-    private lateinit var btnMarkAttendance: Button
-
+    
+    private var _binding: FragmentHomeBinding? = null
+    private val binding get() = _binding!!
+    
+    private var token: String = ""
+    private var userName: String = ""
+    private var organizationId: Int = 0
+    
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_home, container, false)
+    ): View {
+        _binding = FragmentHomeBinding.inflate(inflater, container, false)
+        return binding.root
     }
-
+    
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        initViews(view)
-        loadDashboardData()
+        loadUserData()
+        setupGreeting()
         setupClickListeners()
+        loadStats()
     }
-
-    private fun initViews(view: View) {
-        tvWelcome = view.findViewById(R.id.tvWelcome)
-        tvWorkersCount = view.findViewById(R.id.tvWorkersCount)
-        tvSitesCount = view.findViewById(R.id.tvSitesCount)
-        tvTodayAttendance = view.findViewById(R.id.tvTodayAttendance)
-        btnMarkAttendance = view.findViewById(R.id.btnMarkAttendance)
+    
+    private fun loadUserData() {
+        val prefs = requireContext().getSharedPreferences("auth", Context.MODE_PRIVATE)
+        token = prefs.getString("token", "") ?: ""
+        userName = prefs.getString("user_name", "User") ?: "User"
+        organizationId = prefs.getInt("organization_id", 0)
+        
+        // Set user initials
+        val initials = getInitials(userName)
+        binding.tvUserInitials.text = initials
     }
-
-    private fun loadDashboardData() {
-        val sharedPref = requireActivity().getSharedPreferences("auth", Context.MODE_PRIVATE)
-        val userName = sharedPref.getString("user_name", "User") ?: "User"
+    
+    private fun getInitials(name: String): String {
+        val parts = name.trim().split(" ")
+        return when {
+            parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}".uppercase()
+            parts.size == 1 && parts[0].isNotEmpty() -> {
+                if (parts[0].length >= 2) {
+                    parts[0].substring(0, 2).uppercase()
+                } else {
+                    parts[0].first().uppercase()
+                }
+            }
+            else -> "U"
+        }
+    }
+    
+    private fun setupGreeting() {
+        val calendar = Calendar.getInstance()
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
         
-        tvWelcome.text = "Welcome back, " + userName
+        val greeting = when (hour) {
+            in 0..11 -> "Good morning"
+            in 12..16 -> "Good afternoon"
+            else -> "Good evening"
+        }
         
-        lifecycleScope.launch {
+        binding.tvGreeting.text = greeting
+        binding.tvWelcome.text = userName
+    }
+    
+    private fun setupClickListeners() {
+        // Mark Attendance - Placeholder for now
+        binding.btnMarkAttendance.setOnClickListener {
+            Toast.makeText(requireContext(), "Opening Attendance...", Toast.LENGTH_SHORT).show()
+        }
+        
+        // View Sites - Placeholder for now
+        binding.btnViewSites.setOnClickListener {
+            Toast.makeText(requireContext(), "Opening Sites...", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun loadStats() {
+        if (token.isEmpty()) return
+        
+        CoroutineScope(Dispatchers.IO).launch {
             try {
-                val token = sharedPref.getString("token", "") ?: ""
+                // Load workers count
+                val workersCount = fetchWorkersCount()
                 
-                val workersResponse = RetrofitInstance.api.getWorkers("Bearer " + token)
-                if (workersResponse.isSuccessful) {
-                    val workers = workersResponse.body() ?: emptyList()
-                    tvWorkersCount.text = workers.size.toString()
-                } else {
-                    tvWorkersCount.text = "0"
+                // Load sites count
+                val sitesCount = fetchSitesCount()
+                
+                // Load today's attendance count
+                val todayAttendance = fetchTodayAttendanceCount()
+                
+                withContext(Dispatchers.Main) {
+                    binding.tvWorkersCount.text = workersCount.toString()
+                    binding.tvSitesCount.text = sitesCount.toString()
+                    binding.tvTodayAttendance.text = todayAttendance.toString()
                 }
-                
-                val sitesResponse = RetrofitInstance.api.getSites("Bearer " + token)
-                if (sitesResponse.isSuccessful) {
-                    val sites = sitesResponse.body() ?: emptyList()
-                    tvSitesCount.text = sites.size.toString()
-                } else {
-                    tvSitesCount.text = "0"
-                }
-                
-                tvTodayAttendance.text = "0"
                 
             } catch (e: Exception) {
-                tvWorkersCount.text = "0"
-                tvSitesCount.text = "0"
-                tvTodayAttendance.text = "0"
+                withContext(Dispatchers.Main) {
+                    // Silent fail - keep showing 0s
+                }
             }
         }
     }
-
-    private fun setupClickListeners() {
-        btnMarkAttendance.setOnClickListener {
-            val bottomNav = activity?.findViewById<BottomNavigationView>(R.id.bottomNavigation)
-            bottomNav?.selectedItemId = R.id.nav_attendance
+    
+    private fun fetchWorkersCount(): Int {
+        return try {
+            val url = URL("${ApiConfig.BASE_URL}/workers/?organization_id=$organizationId")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer $token")
+            
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                val response = connection.inputStream.bufferedReader().readText()
+                val jsonArray = JSONArray(response)
+                jsonArray.length()
+            } else {
+                0
+            }
+        } catch (e: Exception) {
+            0
         }
+    }
+    
+    private fun fetchSitesCount(): Int {
+        return try {
+            val url = URL("${ApiConfig.BASE_URL}/sites/?organization_id=$organizationId")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer $token")
+            
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                val response = connection.inputStream.bufferedReader().readText()
+                val jsonArray = JSONArray(response)
+                jsonArray.length()
+            } else {
+                0
+            }
+        } catch (e: Exception) {
+            0
+        }
+    }
+    
+    private fun fetchTodayAttendanceCount(): Int {
+        return try {
+            // Get today's date
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val today = dateFormat.format(Date())
+            
+            val url = URL("${ApiConfig.BASE_URL}/attendance/?organization_id=$organizationId")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer $token")
+            
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                val response = connection.inputStream.bufferedReader().readText()
+                val jsonArray = JSONArray(response)
+                
+                // Count records from today
+                var count = 0
+                for (i in 0 until jsonArray.length()) {
+                    val record = jsonArray.getJSONObject(i)
+                    val clockInTime = record.optString("clock_in_time", "")
+                    if (clockInTime.startsWith(today)) {
+                        count++
+                    }
+                }
+                count
+            } else {
+                0
+            }
+        } catch (e: Exception) {
+            0
+        }
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }
